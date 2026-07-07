@@ -1,4 +1,4 @@
-﻿[build]
+[build]
 base = "stock-web"
 command = "pnpm build"
 publish = "dist"
