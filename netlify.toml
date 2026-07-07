@@ -4,4 +4,7 @@ command = "pnpm build"
 publish = "dist"
 
 [build.environment]
+VITE_STOCK_DATA_PROVIDER = "http"
+VITE_STOCK_API_BASE_URL = "https://a-stock-watch-api.onrender.com/api"
 VITE_REFRESH_INTERVAL_MS = "60000"
+VITE_STOCK_REQUEST_TIMEOUT_MS = "60000"
