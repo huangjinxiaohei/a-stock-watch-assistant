@@ -449,6 +449,9 @@ class AkShareProvider:
         }
 
     def _sectors(self, quotes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not any((quote.get("industry") or "A\u80a1") != "A\u80a1" for quote in quotes):
+            return self._fallback_sectors_from_quotes(quotes)
+
         try:
             records = df_records(ak.stock_board_industry_name_em())
             sectors = [
@@ -471,14 +474,7 @@ class AkShareProvider:
             groups.setdefault(industry, []).append(quote)
 
         if len(groups) <= 1:
-            gainers = sorted(quotes, key=lambda item: item["changePercent"], reverse=True)[:20]
-            losers = sorted(quotes, key=lambda item: item["changePercent"])[:20]
-            active = sorted(quotes, key=lambda item: item["amount"], reverse=True)[:20]
-            return [
-                self._sector_from_quotes("强势个股", gainers),
-                self._sector_from_quotes("弱势个股", losers),
-                self._sector_from_quotes("成交活跃", active),
-            ]
+            return self._fallback_sectors_from_quotes(quotes)
 
         sectors = []
         for industry, items in groups.items():
@@ -486,6 +482,16 @@ class AkShareProvider:
                 continue
             sectors.append(self._sector_from_quotes(industry, items))
         return sorted(sectors, key=lambda item: abs(item["changePercent"]), reverse=True)[:12]
+
+    def _fallback_sectors_from_quotes(self, quotes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        gainers = sorted(quotes, key=lambda item: item["changePercent"], reverse=True)[:20]
+        losers = sorted(quotes, key=lambda item: item["changePercent"])[:20]
+        active = sorted(quotes, key=lambda item: item["amount"], reverse=True)[:20]
+        return [
+            self._sector_from_quotes("\u5f3a\u52bf\u4e2a\u80a1", gainers),
+            self._sector_from_quotes("\u5f31\u52bf\u4e2a\u80a1", losers),
+            self._sector_from_quotes("\u6210\u4ea4\u6d3b\u8dc3", active),
+        ]
 
     def _sector_from_quotes(self, name: str, items: list[dict[str, Any]]) -> dict[str, Any]:
         leader = max(items, key=lambda item: item["changePercent"]) if items else {"name": ""}

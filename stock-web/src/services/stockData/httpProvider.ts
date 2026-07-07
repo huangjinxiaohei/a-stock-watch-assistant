@@ -1,6 +1,6 @@
-﻿import type { DataSeries, IntradayPoint, KlinePoint, StockDataProvider, StockSummary } from "./types";
+import type { DataSeries, IntradayPoint, KlinePoint, StockDataProvider, StockSummary } from "./types";
 
-const requestTimeoutMs = 30000;
+const requestTimeoutMs = Number(import.meta.env.VITE_STOCK_REQUEST_TIMEOUT_MS ?? 60000);
 
 function normalizeSeries<T>(value: T[] | DataSeries<T>): DataSeries<T> {
   return Array.isArray(value) ? { items: value } : value;
