@@ -957,3 +957,100 @@ html[data-theme="dark"] .status-warning {
   color: #6b7280;
   font-size: 13px;
 }
+
+/* Stock detail desktop layout */
+.stock-workspace-grid {
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  grid-template-areas:
+    "quote chart"
+    "analysis chart";
+}
+
+.stock-workspace-grid > .quote-card {
+  grid-area: quote;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.stock-workspace-grid > .quote-card .stock-title {
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.stock-workspace-grid > .quote-card .muted {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.stock-workspace-grid > .quote-card .quote-main {
+  justify-items: start;
+}
+
+.stock-workspace-grid > .quote-card .quote-main strong {
+  font-size: clamp(30px, 2.6vw, 38px);
+  overflow-wrap: anywhere;
+}
+
+.stock-workspace-grid > .quote-card .quote-main span {
+  overflow-wrap: anywhere;
+}
+
+.stock-workspace-grid > .chart-workbench {
+  grid-area: chart;
+  min-width: 0;
+}
+
+.stock-workspace-grid > .analysis-panel {
+  grid-area: analysis;
+  min-width: 0;
+}
+
+.chart-panel-header {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+}
+
+.chart-controls {
+  min-width: 0;
+}
+
+.chart-controls .tab-strip {
+  justify-content: flex-end;
+}
+
+.dual-chart-grid {
+  gap: 12px;
+}
+
+.chart-workbench .chart {
+  min-height: 320px;
+}
+
+.chart-workbench .kline-chart {
+  min-height: 390px;
+}
+
+@media (max-width: 1200px) {
+  .stock-workspace-grid {
+    grid-template-areas: none;
+  }
+
+  .stock-workspace-grid > .quote-card,
+  .stock-workspace-grid > .chart-workbench,
+  .stock-workspace-grid > .analysis-panel {
+    grid-area: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .chart-panel-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chart-controls .tab-strip {
+    justify-content: flex-start;
+  }
+}
