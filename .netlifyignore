@@ -1,0 +1,15 @@
+﻿.git/
+.codex_tmp/
+.pnpm-store/
+stock-api/.venv/
+stock-api/.pip-cache/
+stock-api/data/
+stock-api/*.log
+stock-api/*.pid
+stock-api/app/**/__pycache__/
+stock-web/node_modules/
+stock-web/dist/
+stock-web/*.log
+stock-web/*.tsbuildinfo
+stock-mcp-server/node_modules/
+stock-mcp-server/build/
