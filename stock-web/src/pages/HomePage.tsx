@@ -353,7 +353,10 @@ function MarketAlerts({ alerts }: { alerts: MarketAlert[] }) {
           <div className={`alert-row alert-${alert.level} ${alert.credibility}`} key={`${alert.title}-${alert.detail}`}>
             <div className="alert-row-header">
               <strong>{alert.title}</strong>
-              <span className={`credibility-badge ${alert.credibility}`}>{credibilityLabel[alert.credibility]}</span>
+              <div className="alert-badges" aria-label="\u98ce\u9669\u7b49\u7ea7\u548c\u53ef\u4fe1\u5ea6">
+                <span className={`level-badge ${alert.level}`}>{alertLevelLabel[alert.level]}</span>
+                <span className={`credibility-badge ${alert.credibility}`}>{credibilityLabel[alert.credibility]}</span>
+              </div>
             </div>
             <p>{alert.detail}</p>
             <div className="alert-meta">
@@ -662,6 +665,12 @@ const credibilityLabel: Record<AlertCredibility, string> = {
   confirmed: "已确认",
   needsConfirm: "待复核",
   unavailable: "不可判定"
+};
+
+const alertLevelLabel: Record<AlertLevel, string> = {
+  high: "\u9ad8\u98ce\u9669",
+  medium: "\u4e2d\u98ce\u9669",
+  low: "\u4f4e\u98ce\u9669"
 };
 
 const confidenceTone: Record<DataConfidence, number> = {
