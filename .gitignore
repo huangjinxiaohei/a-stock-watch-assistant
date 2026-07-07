@@ -1,0 +1,37 @@
+﻿.env
+.env.local
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local runtimes and caches
+.venv/
+.pnpm-store/
+.pip-cache/
+.codex_tmp/
+
+# App data and logs
+*.log
+*.pid
+stock-api/data/
+stock-api/.env
+stock-api/.venv/
+stock-api/.pip-cache/
+stock-web/.env.local
+stock-web/node_modules/
+stock-web/dist/
+stock-web/*.log
+stock-web/*.tsbuildinfo
+stock-mcp-server/node_modules/
+stock-mcp-server/build/

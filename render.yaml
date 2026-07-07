@@ -1,0 +1,15 @@
+﻿services:
+  - type: web
+    name: a-stock-watch-api
+    env: python
+    rootDir: stock-api
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: STOCK_API_PROVIDER
+        value: akshare
+      - key: STOCK_API_ALLOW_MOCK_FALLBACK
+        value: true
+      - key: STOCK_API_CORS_ORIGINS
+        value: http://127.0.0.1:5173,http://localhost:5173

@@ -1,0 +1,7 @@
+﻿[build]
+base = "stock-web"
+command = "pnpm build"
+publish = "dist"
+
+[build.environment]
+VITE_REFRESH_INTERVAL_MS = "60000"
