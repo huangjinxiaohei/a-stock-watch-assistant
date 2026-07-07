@@ -27,7 +27,7 @@ app.add_middleware(
 mock_provider = MockProvider()
 provider = mock_provider if settings.provider == "mock" else AkShareProvider()
 cache = PersistentCache(Path(__file__).resolve().parents[1] / "data" / "stock_cache.sqlite3")
-refresh_executor = ThreadPoolExecutor(max_workers=4)
+refresh_executor = ThreadPoolExecutor(max_workers=2)
 refresh_lock = RLock()
 refresh_tasks: dict[str, Future[Any]] = {}
 
@@ -122,7 +122,7 @@ def _cached_run(
     fallback: Callable[[MockProvider], Any],
     attach_status: bool = True,
     collection_key: str | None = None,
-    initial_wait_seconds: float = 8,
+    initial_wait_seconds: float = 3,
 ) -> Any:
     fresh = cache.get(cache_key, ttl_seconds)
     if fresh is not None:
@@ -239,13 +239,3 @@ def _coverage_note(data: dict[str, Any]) -> str | None:
     if not missing:
         return None
     return "、".join(sorted(missing)) + "字段在当前备用数据源中不可得，已显示为暂无；可通过免费东方财富快照、百度估值或历史行情源补齐；若对应免费接口被网络代理拦截则显示为暂无。"
-
-
-
-
-
-
-
-
-
-
