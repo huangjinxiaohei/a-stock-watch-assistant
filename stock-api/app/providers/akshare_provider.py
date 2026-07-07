@@ -100,6 +100,10 @@ class AkShareProvider:
 
     def kline(self, symbol: str) -> list[dict[str, Any]]:
         normalized = normalize_symbol(symbol)
+        direct_records = self._kline_hist_em_direct(normalized)
+        if direct_records:
+            return direct_records
+
         end_date = datetime.now().strftime("%Y%m%d")
         start_date = (datetime.now() - timedelta(days=90)).strftime("%Y%m%d")
         try:
@@ -125,6 +129,64 @@ class AkShareProvider:
                 "close": "close",
                 "volume": "volume",
             })
+
+    def _kline_hist_em_direct(self, normalized: Any) -> list[dict[str, Any]]:
+        market_prefix = "1" if normalized.market == "SH" else "0"
+        end_date = datetime.now().strftime("%Y%m%d")
+        start_date = (datetime.now() - timedelta(days=180)).strftime("%Y%m%d")
+        params = {
+            "secid": f"{market_prefix}.{normalized.code}",
+            "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+            "klt": "101",
+            "fqt": "1",
+            "beg": start_date,
+            "end": end_date,
+            "lmt": "60",
+        }
+        for trust_env in (False, True):
+            session = requests.Session()
+            session.trust_env = trust_env
+            try:
+                response = session.get(
+                    "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+                    params=params,
+                    headers={
+                        "Accept": "application/json,text/plain,*/*",
+                        "Referer": "https://quote.eastmoney.com/",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+                    },
+                    timeout=12,
+                )
+                response.raise_for_status()
+                data = (response.json().get("data") or {})
+                klines = data.get("klines") or []
+            except Exception:
+                klines = []
+            if klines:
+                records = []
+                for line in klines[-60:]:
+                    parts = str(line).split(",")
+                    if len(parts) < 6:
+                        continue
+                    records.append({
+                        "date": parts[0],
+                        "open": parts[1],
+                        "close": parts[2],
+                        "high": parts[3],
+                        "low": parts[4],
+                        "volume": parts[5],
+                    })
+                return self._kline_from_records(records, {
+                    "date": "date",
+                    "open": "open",
+                    "high": "high",
+                    "low": "low",
+                    "close": "close",
+                    "volume": "volume",
+                })
+        return []
 
     def _kline_from_records(self, records: list[dict[str, Any]], columns: dict[str, str]) -> list[dict[str, Any]]:
         closes: list[float] = []
