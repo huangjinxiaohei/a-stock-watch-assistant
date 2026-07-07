@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { HomePage } from "./pages/HomePage";
 import { LoadingState } from "./components/StateViews";
@@ -46,7 +46,7 @@ export default function App() {
 
   return selectedSymbol ? (
     <Suspense fallback={<LoadingState label="正在加载个股详情" />}>
-      <StockDetailPage symbol={selectedSymbol} onBack={backHome} onAddWatch={addSymbol} />
+      <StockDetailPage key={selectedSymbol} symbol={selectedSymbol} onBack={backHome} onAddWatch={addSymbol} />
     </Suspense>
   ) : (
     <HomePage watchSymbols={symbols} onAddWatch={addSymbol} onRemoveWatch={removeSymbol} onSelectStock={selectStock} theme={theme} onToggleTheme={toggleTheme} />

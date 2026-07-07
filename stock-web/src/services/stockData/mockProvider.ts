@@ -1,4 +1,4 @@
-﻿import { buildIntraday, buildKline, financeSeed, getQuote, moneyFlowSeed, newsSeed, stockUniverse } from "./mockData";
+import { buildIntraday, buildKline, financeSeed, getQuote, moneyFlowSeed, newsSeed, stockUniverse } from "./mockData";
 import type { DataStatus, MarketOverview, StockDataProvider, StockSummary } from "./types";
 
 const latency = 220;
@@ -49,6 +49,11 @@ export const mockStockDataProvider: StockDataProvider = {
         rankReason: quote.changePercent < -3 ? "资金流出" : "短线回调"
       }))
     };
+  },
+
+  async getStockQuote(symbol: string) {
+    await wait(latency);
+    return { ...getQuote(symbol), _dataStatus: mockStatus };
   },
 
   async getStockDetail(symbol: string) {

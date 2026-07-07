@@ -1,4 +1,4 @@
-﻿import { Cloud, Database, HardDrive } from "lucide-react";
+import { Cloud, Database, HardDrive } from "lucide-react";
 import type { DataStatus } from "../services/stockData";
 
 export function DataSourceStatus({ status, label }: { status?: DataStatus; label?: string }) {
@@ -14,8 +14,8 @@ export function DataSourceStatus({ status, label }: { status?: DataStatus; label
     );
   }
 
-  const tone = status.mode === "fallback" ? "bad" : status.mode === "stale" ? "warn" : "good";
-  const Icon = status.provider === "cache" || status.mode === "fresh" || status.mode === "stale" ? HardDrive : status.mode === "live" ? Cloud : Database;
+  const tone = status.mode === "fallback" ? "bad" : status.mode === "stale" || status.mode === "stale_refreshing" ? "warn" : "good";
+  const Icon = status.provider === "cache" || status.mode === "fresh" || status.mode === "stale" || status.mode === "stale_refreshing" ? HardDrive : status.mode === "live" ? Cloud : Database;
   const sourceProvider = status.sourceProvider ?? status.provider;
 
   return (

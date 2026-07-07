@@ -1,4 +1,4 @@
-﻿import { Activity, Bell, Flame, Moon, RefreshCw, Settings2, Sun } from "lucide-react";
+import { Activity, Bell, Flame, Moon, RefreshCw, Settings2, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataSourceStatus } from "../components/DataSourceStatus";
 import { SearchBox } from "../components/SearchBox";
@@ -68,11 +68,11 @@ export function HomePage({ watchSymbols, onAddWatch, onRemoveWatch, onSelectStoc
       setOverview(market);
       setLoading(false);
 
-      const quoteResults = await Promise.allSettled(watchSymbols.map((symbol) => stockDataProvider.getStockDetail(symbol).then((detail) => detail.quote)));
+      const quoteResults = await Promise.allSettled(watchSymbols.map((symbol) => stockDataProvider.getStockQuote(symbol)));
       const quotes = quoteResults.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
       setWatchQuotes(quotes);
       if (quoteResults.some((result) => result.status === "rejected")) {
-        setError("部分自选股详情加载较慢，已先显示市场概览。");
+        setError("部分自选股报价加载较慢，已先显示市场概览。");
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "行情加载失败");
@@ -141,6 +141,7 @@ export function HomePage({ watchSymbols, onAddWatch, onRemoveWatch, onSelectStoc
                 <h2>大盘概览</h2>
                 <span className={`tone-badge ${marketMood.tone}`}>{marketMood.label}</span>
               </div>
+              {refreshing ? <p className="panel-status-note">后台刷新中，当前仍显示上次数据。</p> : null}
               <div className="index-ticker-grid">
                 {indexTargets.map((name) => (
                   <IndexTile key={name} index={findIndex(overview.indexes, name)} label={name} stats={marketStats} />

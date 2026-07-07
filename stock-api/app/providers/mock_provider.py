@@ -50,6 +50,9 @@ class MockProvider:
             "turnoverRanking": [{**item, "rankReason": "换手率靠前"} for item in sorted(quotes, key=lambda item: item["turnoverRate"], reverse=True)[:5]],
         }
 
+    def quote(self, symbol: str) -> dict:
+        return mock_data.quote(symbol)
+
     def stock_detail(self, symbol: str) -> dict:
         return mock_data.detail(symbol)
 

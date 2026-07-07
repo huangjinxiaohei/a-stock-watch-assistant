@@ -1,7 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -25,6 +27,9 @@ app.add_middleware(
 mock_provider = MockProvider()
 provider = mock_provider if settings.provider == "mock" else AkShareProvider()
 cache = PersistentCache(Path(__file__).resolve().parents[1] / "data" / "stock_cache.sqlite3")
+refresh_executor = ThreadPoolExecutor(max_workers=4)
+refresh_lock = RLock()
+refresh_tasks: dict[str, Future[Any]] = {}
 
 
 @app.get("/api/health")
@@ -36,6 +41,11 @@ def health() -> dict[str, Any]:
         "basicDataProvider": "free: 东方财富 push2delay/push2 快照 + AkShare/Sina 兜底 + 百度估值 + 历史行情",
         "cache": "sqlite",
     }
+
+
+@app.get("/api/healthz")
+def healthz() -> dict[str, Any]:
+    return {"ok": True}
 
 
 @app.get("/api/stocks/search")
@@ -57,6 +67,17 @@ def market_overview() -> dict[str, Any]:
         600,
         lambda active: active.market_overview(),
         lambda fallback: fallback.market_overview(),
+    )
+
+
+@app.get("/api/stocks/{symbol}/quote")
+def stock_quote(symbol: str) -> dict[str, Any]:
+    normalized = symbol.strip().upper()
+    return _cached_run(
+        f"stock:{normalized}:quote",
+        60,
+        lambda active: active.quote(symbol),
+        lambda fallback: fallback.stock_detail(symbol)["quote"],
     )
 
 
@@ -101,25 +122,65 @@ def _cached_run(
     fallback: Callable[[MockProvider], Any],
     attach_status: bool = True,
     collection_key: str | None = None,
+    initial_wait_seconds: float = 8,
 ) -> Any:
     fresh = cache.get(cache_key, ttl_seconds)
     if fresh is not None:
         return _with_status(fresh.value, "cache", "fresh", fresh, None, attach_status, collection_key)
 
-    try:
-        data = primary(provider)
-        cache.set(cache_key, data)
-        return _with_status(data, settings.provider, "live", None, None, attach_status, collection_key)
-    except Exception as error:
-        stale = cache.get_stale(cache_key)
-        if stale is not None:
-            return _with_status(stale.value, "cache", "stale", stale, str(error), attach_status, collection_key)
+    stale = cache.get_stale(cache_key)
+    if stale is not None:
+        _ensure_refresh(cache_key, primary)
+        return _with_status(
+            stale.value,
+            "cache",
+            "stale_refreshing",
+            stale,
+            "实时刷新较慢，已先返回旧缓存并在后台刷新。",
+            attach_status,
+            collection_key,
+        )
 
+    future = _ensure_refresh(cache_key, primary)
+    try:
+        data = future.result(timeout=initial_wait_seconds)
+        return _with_status(data, settings.provider, "live", None, None, attach_status, collection_key)
+    except TimeoutError:
+        warning = "实时源响应超时，后台刷新中；当前返回兜底数据。"
+        if settings.allow_mock_fallback and provider is not mock_provider:
+            data = fallback(mock_provider)
+            return _with_status(data, "mock", "fallback", None, warning, attach_status, collection_key)
+        raise HTTPException(status_code=504, detail=warning)
+    except Exception as error:
         if settings.allow_mock_fallback and provider is not mock_provider:
             data = fallback(mock_provider)
             return _with_status(data, "mock", "fallback", None, str(error), attach_status, collection_key)
 
         raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+def _ensure_refresh(cache_key: str, primary: Callable[[Any], Any]) -> Future[Any]:
+    with refresh_lock:
+        active = refresh_tasks.get(cache_key)
+        if active is not None and not active.done():
+            return active
+
+        future = refresh_executor.submit(_refresh_cache, cache_key, primary)
+        refresh_tasks[cache_key] = future
+        future.add_done_callback(lambda _: _clear_refresh(cache_key, future))
+        return future
+
+
+def _refresh_cache(cache_key: str, primary: Callable[[Any], Any]) -> Any:
+    data = primary(provider)
+    cache.set(cache_key, data)
+    return data
+
+
+def _clear_refresh(cache_key: str, future: Future[Any]) -> None:
+    with refresh_lock:
+        if refresh_tasks.get(cache_key) is future:
+            refresh_tasks.pop(cache_key, None)
 
 
 def _with_status(

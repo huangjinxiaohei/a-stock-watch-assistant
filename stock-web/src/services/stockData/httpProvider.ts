@@ -1,4 +1,4 @@
-import type { DataSeries, IntradayPoint, KlinePoint, StockDataProvider, StockSummary } from "./types";
+import type { DataSeries, IntradayPoint, KlinePoint, QuoteWithStatus, StockDataProvider, StockSummary } from "./types";
 
 const requestTimeoutMs = Number(import.meta.env.VITE_STOCK_REQUEST_TIMEOUT_MS ?? 60000);
 
@@ -39,6 +39,7 @@ export function createHttpStockDataProvider(baseUrl: string): StockDataProvider 
   return {
     searchStocks: async (keyword) => normalizeItems<StockSummary>(await request<StockSummary[] | DataSeries<StockSummary>>(`/stocks/search?keyword=${encodeURIComponent(keyword)}`)),
     getMarketOverview: () => request("/market/overview"),
+    getStockQuote: (symbol) => request<QuoteWithStatus>(`/stocks/${encodeURIComponent(symbol)}/quote`),
     getStockDetail: (symbol) => request(`/stocks/${encodeURIComponent(symbol)}`),
     getIntraday: async (symbol) => normalizeSeries<IntradayPoint>(await request<IntradayPoint[] | DataSeries<IntradayPoint>>(`/stocks/${encodeURIComponent(symbol)}/intraday`)),
     getKline: async (symbol) => normalizeSeries<KlinePoint>(await request<KlinePoint[] | DataSeries<KlinePoint>>(`/stocks/${encodeURIComponent(symbol)}/kline`))

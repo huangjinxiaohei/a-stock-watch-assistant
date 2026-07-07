@@ -1,4 +1,4 @@
-﻿import { ArrowLeft, RefreshCw, Star } from "lucide-react";
+import { ArrowLeft, RefreshCw, Star } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { generateStockAnalysis } from "../analysis/stockAnalysis";
 import { AnalysisPanel, RiskPanel } from "../components/AnalysisPanel";
@@ -7,7 +7,7 @@ import { DataSourceStatus } from "../components/DataSourceStatus";
 import { FinancePanel, MoneyFlowPanel, NewsPanel } from "../components/InfoPanels";
 import { QuoteCard } from "../components/QuoteCard";
 import { ErrorState, LoadingState } from "../components/StateViews";
-import { refreshIntervalMs, stockDataProvider, type DataStatus, type IntradayPoint, type KlinePoint, type StockDetail } from "../services/stockData";
+import { refreshIntervalMs, stockDataProvider, type DataStatus, type FinanceMetrics, type IntradayPoint, type KlinePoint, type MoneyFlow, type QuoteWithStatus, type StockDetail } from "../services/stockData";
 
 interface StockDetailPageProps {
   symbol: string;
@@ -32,23 +32,51 @@ export function StockDetailPage({ symbol, onBack, onAddWatch }: StockDetailPageP
 
   const load = useCallback(async () => {
     setError("");
+    let quoteReady = false;
+
     try {
-      const [nextDetail, nextIntraday, nextKline] = await Promise.all([
-        stockDataProvider.getStockDetail(symbol),
-        stockDataProvider.getIntraday(symbol),
-        stockDataProvider.getKline(symbol)
-      ]);
-      setDetail(nextDetail);
-      setIntraday(nextIntraday.items);
-      setKline(nextKline.items);
-      setIntradayStatus(nextIntraday._dataStatus);
-      setKlineStatus(nextKline._dataStatus);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "个股行情加载失败");
-    } finally {
+      const nextQuote = await stockDataProvider.getStockQuote(symbol);
+      quoteReady = true;
+      setDetail((current) => current ? { ...current, quote: nextQuote, _dataStatus: nextQuote._dataStatus ?? current._dataStatus } : buildQuoteOnlyDetail(nextQuote));
       setLoading(false);
+    } catch {
+      // Full detail still has a chance to provide quote data below.
     }
+
+    const [nextDetail, nextIntraday, nextKline] = await Promise.allSettled([
+      stockDataProvider.getStockDetail(symbol),
+      stockDataProvider.getIntraday(symbol),
+      stockDataProvider.getKline(symbol)
+    ]);
+
+    const failedSections: string[] = [];
+    if (nextDetail.status === "fulfilled") {
+      setDetail(nextDetail.value);
+      quoteReady = true;
+    } else {
+      failedSections.push("\u57fa\u672c\u9762/\u8d44\u91d1/\u65b0\u95fb");
+    }
+
+    if (nextIntraday.status === "fulfilled") {
+      setIntraday(nextIntraday.value.items);
+      setIntradayStatus(nextIntraday.value._dataStatus);
+    } else {
+      failedSections.push("\u5206\u65f6\u8d70\u52bf");
+    }
+
+    if (nextKline.status === "fulfilled") {
+      setKline(nextKline.value.items);
+      setKlineStatus(nextKline.value._dataStatus);
+    } else {
+      failedSections.push("K\u7ebf\u6570\u636e");
+    }
+
+    if (failedSections.length > 0) {
+      setError(quoteReady ? `\u90e8\u5206\u6570\u636e\u52a0\u8f7d\u8f83\u6162\uff1a${failedSections.join("\u3001")}\u3002\u5df2\u5148\u663e\u793a\u53ef\u7528\u884c\u60c5\u3002` : "\u4e2a\u80a1\u884c\u60c5\u52a0\u8f7d\u5931\u8d25");
+    }
+    setLoading(false);
   }, [symbol]);
+
 
   useEffect(() => {
     setLoading(true);
@@ -150,6 +178,40 @@ export function StockDetailPage({ symbol, onBack, onAddWatch }: StockDetailPageP
       <NewsPanel news={detail.news} />
     </main>
   );
+}
+
+const pendingFinance: FinanceMetrics = {
+  revenueGrowth: 0,
+  netProfitGrowth: 0,
+  grossMargin: 0,
+  roe: 0,
+  debtRatio: 0,
+  eps: 0,
+  available: false,
+  source: "\u540e\u53f0\u52a0\u8f7d\u4e2d",
+  asOfDate: "",
+  warning: "\u8d22\u52a1\u6307\u6807\u6b63\u5728\u540e\u53f0\u52a0\u8f7d\uff0c\u6682\u672a\u7eb3\u5165\u590d\u6838\u3002"
+};
+
+const pendingMoneyFlow: MoneyFlow = {
+  mainNetInflow: 0,
+  retailNetInflow: 0,
+  largeOrderRatio: 0,
+  fiveDayMainNetInflow: 0,
+  available: false,
+  source: "\u540e\u53f0\u52a0\u8f7d\u4e2d",
+  asOfDate: "",
+  warning: "\u4e2a\u80a1\u8d44\u91d1\u6d41\u6b63\u5728\u540e\u53f0\u52a0\u8f7d\uff0c\u8d44\u91d1\u7ef4\u5ea6\u6682\u672a\u7eb3\u5165\u98ce\u9669\u786e\u8ba4\u3002"
+};
+
+function buildQuoteOnlyDetail(quote: QuoteWithStatus): StockDetail {
+  return {
+    quote,
+    finance: pendingFinance,
+    moneyFlow: pendingMoneyFlow,
+    news: [],
+    _dataStatus: quote._dataStatus
+  };
 }
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {

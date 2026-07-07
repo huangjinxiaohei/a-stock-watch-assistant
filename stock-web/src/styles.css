@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color: #1f2933;
   background: #eef2f5;
   font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
@@ -951,3 +951,9 @@ html[data-theme="dark"] .status-warning {
 
 
 
+
+.panel-status-note {
+  margin: -4px 0 10px;
+  color: #6b7280;
+  font-size: 13px;
+}

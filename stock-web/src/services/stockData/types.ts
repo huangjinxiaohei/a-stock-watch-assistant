@@ -1,9 +1,9 @@
-﻿export type MarketTone = "up" | "down" | "flat";
+export type MarketTone = "up" | "down" | "flat";
 
 export interface DataStatus {
   provider: string;
   sourceProvider?: string;
-  mode: "live" | "fresh" | "stale" | "fallback" | string;
+  mode: "live" | "fresh" | "stale" | "stale_refreshing" | "fallback" | string;
   cacheAgeSeconds: number;
   updatedAt?: number | null;
   warning?: string;
@@ -34,6 +34,10 @@ export interface Quote extends StockSummary {
   totalMarketCap: number;
   floatMarketCap: number;
   updateTime: string;
+}
+
+export interface QuoteWithStatus extends Quote {
+  _dataStatus?: DataStatus;
 }
 
 export interface MarketIndex {
@@ -151,6 +155,7 @@ export interface DataSeries<T> {
 export interface StockDataProvider {
   searchStocks(keyword: string): Promise<StockSummary[]>;
   getMarketOverview(): Promise<MarketOverview>;
+  getStockQuote(symbol: string): Promise<QuoteWithStatus>;
   getStockDetail(symbol: string): Promise<StockDetail>;
   getIntraday(symbol: string): Promise<DataSeries<IntradayPoint>>;
   getKline(symbol: string): Promise<DataSeries<KlinePoint>>;
