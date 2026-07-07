@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -181,11 +182,25 @@ class AkShareProvider:
         diff = first_page.get("diff") or []
         total = int(clean_number(first_page.get("total"), len(diff)))
         records = list(diff)
-        for page in range(2, total // page_size + 2):
-            if len(records) >= total:
-                break
-            page_data = self._fetch_eastmoney_spot_page(url, trust_env, page, page_size)
-            records.extend(page_data.get("diff") or [])
+        page_count = (total + page_size - 1) // page_size
+        if page_count > 1:
+            page_records: dict[int, list[dict[str, Any]]] = {}
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = {
+                    executor.submit(self._fetch_eastmoney_spot_page, url, trust_env, page, page_size): page
+                    for page in range(2, page_count + 1)
+                }
+                for future in as_completed(futures):
+                    page = futures[future]
+                    try:
+                        page_data = future.result()
+                    except Exception:
+                        continue
+                    page_records[page] = page_data.get("diff") or []
+            for page in sorted(page_records):
+                records.extend(page_records[page])
+        if total > page_size and len(records) < total * 0.8:
+            return []
         return [self._eastmoney_record_from_diff(item) for item in records if isinstance(item, dict)]
 
     def _fetch_eastmoney_spot_page(self, url: str, trust_env: bool, page: int, page_size: int) -> dict[str, Any]:
