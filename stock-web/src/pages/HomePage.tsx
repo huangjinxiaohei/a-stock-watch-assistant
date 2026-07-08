@@ -1,9 +1,12 @@
 import { Activity, Bell, Flame, Moon, RefreshCw, Settings2, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataSourceStatus } from "../components/DataSourceStatus";
+import { ResearchLauncher } from "../components/ResearchLauncher";
+import { ResearchReportPanel } from "../components/ResearchReportPanel";
 import { SearchBox } from "../components/SearchBox";
 import { ErrorState, LoadingState } from "../components/StateViews";
 import { StockTable } from "../components/StockTable";
+import { useResearchReport } from "../hooks/useResearchReport";
 import { refreshIntervalMs, stockDataProvider, type DataStatus, type MarketIndex, type MarketOverview, type MarketStats, type Quote, type RankingItem, type SectorPerformance } from "../services/stockData";
 import { formatMoney, formatNumber, formatPercent, toneClass } from "../utils/format";
 
@@ -58,6 +61,7 @@ export function HomePage({ watchSymbols, onAddWatch, onRemoveWatch, onSelectStoc
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [rankingTab, setRankingTab] = useState<RankingTab>("gainers");
+  const research = useResearchReport(overview);
 
   const load = useCallback(async () => {
     const startedAt = Date.now();
@@ -114,16 +118,17 @@ export function HomePage({ watchSymbols, onAddWatch, onRemoveWatch, onSelectStoc
       <section className="terminal-header">
         <div className="brand-block">
           <div className="brand-title-row">
-            <h1>A股行情辅助分析</h1>
+            <h1>{"AI\u6295\u7814\u52a9\u624b"}</h1>
             <button className="theme-toggle-button" type="button" onClick={onToggleTheme} title={theme === "dark" ? "切换到白天模式" : "切换到夜晚模式"} aria-label="切换昼夜模式">
               {theme === "dark" ? <Moon size={17} /> : <Sun size={17} />}
               <span>{theme === "dark" ? "夜晚" : "白天"}</span>
             </button>
           </div>
+          <p className="brand-subtitle">输入股票代码，生成结构化研究报告</p>
           <div className="header-meta">
             <span>{getMarketSessionLabel()}</span>
             <span>刷新 {new Date().toLocaleTimeString("zh-CN", { hour12: false })}</span>
-            <span>辅助参考，不构成投资建议</span>
+            <span>{"\u4fe1\u606f\u6574\u7406\u548c\u7814\u7a76\u8f85\u52a9\uff0c\u4e0d\u6784\u6210\u6295\u8d44\u5efa\u8bae"}</span>
           </div>
         </div>
         <SearchBox onSelect={onSelectStock} onAddWatch={onAddWatch} />
@@ -133,8 +138,21 @@ export function HomePage({ watchSymbols, onAddWatch, onRemoveWatch, onSelectStoc
         </button>
       </section>
 
+      <section className="research-hero-grid">
+        <ResearchLauncher loading={research.loading} onGenerate={research.generate} />
+        <ResearchReportPanel report={research.report} loading={research.loading} error={research.error} steps={research.steps} currentStep={research.currentStep} />
+      </section>
+
       {overview ? (
         <>
+          <section className="market-assistant-heading">
+            <div>
+              <span className="eyebrow">Market Context</span>
+              <h2>市场辅助观察</h2>
+            </div>
+            <p>保留原有市场温度、异动提醒、排行和自选股模块，作为研究报告之外的辅助背景。</p>
+          </section>
+
           <section className="market-hero-grid">
             <div className="panel market-overview-panel">
               <div className="panel-header compact-header">

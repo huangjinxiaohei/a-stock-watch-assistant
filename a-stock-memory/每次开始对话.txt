@@ -1,0 +1,24 @@
+这是一个已有项目。
+
+请先阅读：
+C:\Users\梁嘉辰\Documents\炒股行情辅助分析\a-stock-memory目录下的：
+PROJECT_CONTEXT.md
+PRODUCT_PRD.md
+TECH_ARCHITECTURE.md
+DEVELOPMENT_RULES.md
+
+
+理解项目目标和开发规则。
+
+然后分析当前代码结构。
+
+不要修改代码。
+
+先输出：
+
+1. 当前项目技术栈
+2. 当前结构分析
+3. V2改造计划
+4. 预计修改文件
+
+等待我确认后再开始开发。
