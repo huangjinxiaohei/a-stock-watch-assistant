@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
@@ -13,6 +13,7 @@ from app.cache import CacheEntry, PersistentCache
 from app.config import settings
 from app.providers.akshare_provider import AkShareProvider
 from app.providers.mock_provider import MockProvider
+from app.research.router import router as research_router
 
 
 app = FastAPI(title="A-share Stock API", version="0.1.0")
@@ -20,9 +21,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+app.include_router(research_router, prefix="/api")
 
 mock_provider = MockProvider()
 provider = mock_provider if settings.provider == "mock" else AkShareProvider()
@@ -239,3 +241,4 @@ def _coverage_note(data: dict[str, Any]) -> str | None:
     if not missing:
         return None
     return "、".join(sorted(missing)) + "字段在当前备用数据源中不可得，已显示为暂无；可通过免费东方财富快照、百度估值或历史行情源补齐；若对应免费接口被网络代理拦截则显示为暂无。"
+
