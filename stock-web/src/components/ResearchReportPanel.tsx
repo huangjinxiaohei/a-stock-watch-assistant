@@ -1,5 +1,5 @@
-﻿import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
-import type { ResearchDataState, ResearchReport } from "../analysis/researchReport";
+﻿import { CheckCircle2, Info, Loader2, Sparkles } from "lucide-react";
+import type { ReportStatus, ResearchDataState, ResearchReport } from "../analysis/researchReport";
 
 interface ResearchReportPanelProps {
   report: ResearchReport | null;
@@ -10,12 +10,14 @@ interface ResearchReportPanelProps {
 }
 
 export function ResearchReportPanel({ report, loading, error, steps, currentStep }: ResearchReportPanelProps) {
+  const sourceView = report ? getReportSourceView(report.reportStatus) : null;
+
   return (
     <section className="panel research-report-panel" aria-label="研究报告展示">
       <div className="panel-header compact-header">
         <div>
           <h2>结构化研究报告</h2>
-          <p className="section-subtitle">规则生成版本，适合作为求职作品集中的AI投研入口演示。</p>
+          <p className="section-subtitle">优先使用后端AI增强报告；不可用时自动保留规则整理稿。</p>
         </div>
         <Sparkles size={18} />
       </div>
@@ -44,6 +46,16 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
 
       {report ? (
         <article className="research-report-content">
+          {sourceView ? (
+            <div className={`research-status-banner ${sourceView.tone}`}>
+              <Info size={16} />
+              <div>
+                <strong>{sourceView.label}</strong>
+                <span>{sourceView.detail}</span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="research-report-meta">
             <div>
               <strong>{report.name}</strong>
@@ -52,6 +64,10 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
             <div>
               <span>生成时间</span>
               <strong>{report.generatedAt}</strong>
+            </div>
+            <div>
+              <span>报告来源</span>
+              <strong>{sourceView?.label || "规则整理稿"}</strong>
             </div>
           </div>
 
@@ -76,7 +92,16 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
 
           <div className="research-source-list">
             {report.dataSources.map((source) => <span key={source}>{source}</span>)}
+            {report.reportStatus.provider ? <span>生成引擎：{report.reportStatus.provider}</span> : null}
+            {report.reportStatus.model ? <span>模型：{report.reportStatus.model}</span> : null}
+            {typeof report.reportStatus.latencyMs === "number" ? <span>耗时：{report.reportStatus.latencyMs}ms</span> : null}
           </div>
+
+          {report.warnings && report.warnings.length > 0 ? (
+            <div className="research-warning-list">
+              {report.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+            </div>
+          ) : null}
 
           <div className="research-section-grid">
             {report.sections.map((section) => (
@@ -92,6 +117,30 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
       ) : null}
     </section>
   );
+}
+
+function getReportSourceView(status: ReportStatus): { label: string; detail: string; tone: "good" | "warn" | "neutral" } {
+  if (status.source === "llm" && status.status === "success") {
+    return {
+      label: "AI增强报告",
+      detail: "由后端报告接口生成，并已保留数据状态和免责声明。",
+      tone: "good"
+    };
+  }
+
+  if (status.source === "rule_fallback" || status.status === "fallback") {
+    return {
+      label: "降级整理稿",
+      detail: status.fallbackReason || "AI生成暂不可用，已使用规则整理稿。",
+      tone: "warn"
+    };
+  }
+
+  return {
+    label: "规则整理稿",
+    detail: "基于公开行情数据和规则生成，用于信息整理和研究辅助。",
+    tone: "neutral"
+  };
 }
 
 const dataStateLabel: Record<ResearchDataState, string> = {

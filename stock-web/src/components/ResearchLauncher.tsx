@@ -48,7 +48,7 @@ export function ResearchLauncher({ loading, onGenerate }: ResearchLauncherProps)
       <div className="research-launcher-copy">
         <span className="eyebrow">AI Research Assistant</span>
         <h2>输入股票代码，生成结构化研究报告</h2>
-        <p>基于公开行情、K线、技术指标和新闻线索生成研究材料，不接入真实LLM API。</p>
+        <p>优先调用后端AI报告接口整理公开行情、K线、技术指标和新闻线索；接口不可用时自动返回规则整理稿。</p>
       </div>
 
       <div className="research-input-block">

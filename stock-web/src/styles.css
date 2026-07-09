@@ -1342,9 +1342,64 @@ html[data-theme="dark"] .level-badge.low {
   gap: 12px;
 }
 
+
+.research-status-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: flex-start;
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfe;
+  color: #405063;
+}
+
+.research-status-banner strong,
+.research-status-banner span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.research-status-banner span {
+  margin-top: 3px;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.research-status-banner.good {
+  border-color: #badfcb;
+  background: #f2fbf6;
+}
+
+.research-status-banner.warn {
+  border-color: #f2d08b;
+  background: #fffaf0;
+}
+
+.research-status-banner.neutral {
+  border-color: #d8e0e7;
+}
+
+.research-warning-list {
+  display: grid;
+  gap: 6px;
+}
+
+.research-warning-list span {
+  border: 1px solid #f2d08b;
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: #9a6200;
+  background: #fffaf0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .research-report-meta {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   border: 1px solid #e4e9f0;
@@ -1483,6 +1538,29 @@ html[data-theme="dark"] .research-step.active {
   color: #b9d7ff;
 }
 
+
+html[data-theme="dark"] .research-status-banner.neutral,
+html[data-theme="dark"] .research-status-banner {
+  background: #101820;
+  border-color: #273444;
+  color: #dbe4ee;
+}
+
+html[data-theme="dark"] .research-status-banner span {
+  color: #8ea0b5;
+}
+
+html[data-theme="dark"] .research-status-banner.good {
+  background: #0d2017;
+  border-color: #255d42;
+}
+
+html[data-theme="dark"] .research-status-banner.warn,
+html[data-theme="dark"] .research-warning-list span {
+  background: #241b0c;
+  border-color: #6d4b14;
+  color: #f7c873;
+}
 html[data-theme="dark"] .research-section.disclaimer-section {
   background: #241b0c;
   border-color: #6d4b14;
