@@ -1,34 +1,31 @@
 # 更新日志
 
-## Unreleased - 2026-07-10
+## Unreleased - 2026-07-11
 
-### 部署与集成
+### LLM 合规治理
 
-- Netlify 前端改为从 GitHub `main` 自动构建和部署，不再使用旧的 `api upload` 模式。
-- AI投研助手 V2 前端已成功上线。
-- Render 后端 `POST /api/research/reports` 已成功上线。
-- 修复前端报告接口重复拼接 `/api` 的问题，避免请求 `/api/api/research/reports`。
+- Refined LLM report prompts to preserve data-backed historical analysis while prohibiting recommendations and future price predictions.
+- 新增 `HARD_BLOCK`、`CONTEXT_RESTRICTED`、`SOFT_WARNING` 分级治理。
+- 新增基于规则 ID、类别和字段路径的非敏感合规诊断。
+- 将 LLM candidate 合规检查与 `rule` / `rule_fallback` 检查分离。
+- 修复规则版 fallback 被上下文限制规则或软提示规则误拦截的问题。
+- 将 `news_clues` 限定为新闻和公告事实整理，禁止系统在该章节生成技术状态分析。
+- 本轮未修改 API 契约、前端、部署配置或数据源 provider。
 
 ### 验证
 
-- 线上无 Key 规则版 fallback 验收通过：HTTP 200、`source=rule`、`provider=disabled`，免责声明存在。
-- DeepSeek 本地 API 调用链路已验证：`provider=openai_compatible`、`model=deepseek-v4-pro`，请求和响应接收正常。
-- 首次真实 LLM 测试因模型输出命中 compliance 规则返回 `rule_fallback`，尚未通过 LLM 成功路径验收。
+- 验证无 Key 规则版 fallback：HTTP 200、`source=rule`、`status=success`、`provider=disabled`。
+- 验证 HARD_BLOCK 命中后的规则版 fallback：HTTP 200、`source=rule_fallback`、`status=fallback`。
+- 验证七类 HARD_BLOCK、固定免责声明、8 个报告章节、编码与敏感信息扫描。
+- 使用 DeepSeek `deepseek-v4-pro` 完成本地真实 LLM 成功路径复测：`SH600519`、`SZ000001`、`SZ300750`。
+- 三份报告均为 `llm/success`，且未发现交易建议、目标价、仓位建议、收益承诺、未来价格预测或 API Key 泄露。
 
-### 本地未提交改动
+### 提交与审查状态
 
-- `prompts.py` 新增信息整理型报告约束、章节约束和中性表达要求。
-- `compliance.py` 新增规则 ID、类别和字段路径诊断，保留硬规则 fallback。
-- `service.py` 增加第一轮事实包中性化。
-- 上述三个后端文件当前仍未提交、未 push，只存在于本地工作区。
-- 本轮未修改 API 契约、前端、部署配置或数据源 provider。
-
-### 待完成
-
-- 软倾向表达分级治理仍待设计和实现，不能视为已完成。
-- 完成分级治理后需重新进行技术架构、投研提示词和测试质检三方只读审查。
-- `SH600519`、`SZ000001`、`SZ300750` 的真实 LLM 成功路径复测仍待完成。
-- Render 尚未配置真实 LLM Key。
+- 后端合规补丁已提交为 `c34fd99`：`feat: refine LLM report compliance handling`。
+- 技术架构Agent、投研提示词Agent、测试质检Agent的独立审查仍待回传，原因均为 `systemError`。
+- Commit `c34fd99` 由用户明确授权基于降级审查证据提交，不代表三个独立 Agent 已审查通过。
+- 代码尚未 push，Render 尚未配置真实 LLM Key。
 
 ## V2.0.0 - 2026-07-08
 
@@ -39,6 +36,9 @@
 - 新增规则版研究报告、数据状态和免责声明展示。
 - 后端新增 LLM 研究报告 API、schema 校验、合规检查和规则版 fallback。
 - 前端接入后端研究报告 API，并保留前端规则版二级 fallback。
+- Netlify 前端改为从 GitHub `main` 自动构建和部署。
+- Render 后端 `POST /api/research/reports` 已上线。
+- 修复前端重复拼接 `/api` 的问题。
 
 ### 未纳入本版本
 

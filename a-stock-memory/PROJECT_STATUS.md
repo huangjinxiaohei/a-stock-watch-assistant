@@ -1,12 +1,12 @@
 # AI投研助手 V2 - 项目状态
 
-更新时间：2026-07-10
+更新时间：2026-07-11
 
 ## 1. 当前阶段
 
-当前处于：**LLM 增强研究报告——本地真实 LLM 联调与合规适配阶段**。
+当前处于：**LLM 增强研究报告——本地真实 LLM 联调及合规适配已通过，等待推送与线上部署决策阶段**。
 
-当前工作重点是完善本地 LLM 研究报告的合规边界和输入事实包表达。在本地真实 LLM 三只股票复测通过前，不配置 Render 真实 LLM Key，也不建议提交当前合规适配补丁。
+本地 DeepSeek 成功路径、规则版 fallback 和合规降级路径均已验证。后端合规补丁已经提交，但尚未 push，也尚未在 Render 配置真实 LLM Key。
 
 ## 2. 已完成事项
 
@@ -16,102 +16,88 @@
 - Netlify 已连接 GitHub `main` 自动部署，不再使用旧的 `api upload` 部署模式。
 - Render 后端已部署 `POST /api/research/reports`。
 - 已修复前端报告接口重复拼接 `/api` 的问题，真实请求路径为 `/api/research/reports`。
-- 线上无 Key fallback 已验收通过：
-  - HTTP 200
-  - `reportStatus.source=rule`
-  - `reportStatus.provider=disabled`
-  - 报告包含固定免责声明
+- 线上无 Key fallback 已验收通过，报告包含固定免责声明。
 
-### 本地真实 LLM 联调
+### 本地真实 LLM 与合规适配
 
-- DeepSeek API 本地调用链路已调通：
+- DeepSeek API 本地调用链路已验证：
   - `provider=openai_compatible`
   - `model=deepseek-v4-pro`
-  - 模型请求发送和响应接收正常
-- 首次真实 LLM 测试结果：
-  - `reportStatus.source=rule_fallback`
-  - `reportStatus.status=fallback`
-  - 原因：模型输出命中后端 compliance 规则
-- 上述结果证明 LLM 调用链路可用，但尚未通过 LLM 成功路径验收。
-
-### 第一轮合规适配
-
-- 已收紧研究报告 Prompt，将生成目标限定为信息整理和研究辅助。
-- Compliance 已增加稳定的规则 ID、类别和字段路径诊断。
-- `service.py` 已完成第一轮事实包中性化：
-  - K线摘要改为历史数值、均线位置和成交量/均量比等事实描述
-  - 新闻、warnings、财务/资金流 warning 和 dataStatus warning 进入 LLM 前进行中性化
-  - 不记录或返回完整 LLM 原文
-- 已通过以下验证：
-  - Python `compileall`
-  - 无 Key fallback
-  - 七类硬规则拦截测试
-  - 免责声明检查
-  - 三个修改文件的 BOM 检查
-  - 敏感信息扫描
+- 完成 LLM 报告 Prompt 收紧，仅允许信息整理、数据状态说明和有依据的历史状态分析。
+- 完成合规规则分级：`HARD_BLOCK`、`CONTEXT_RESTRICTED`、`SOFT_WARNING`。
+- 合规诊断支持非敏感的 `rule_id`、`category` 和 `path`。
+- LLM candidate 与 `rule` / `rule_fallback` 已采用分阶段合规检查。
+- `rule` / `rule_fallback` 不再被 `CONTEXT_RESTRICTED` 或 `SOFT_WARNING` 误拦截。
+- `news_clues` 章节已限制为新闻和公告事实整理，不再生成系统技术状态分析。
 - 本轮未修改 API 契约、前端、部署配置或数据源 provider。
 
-## 3. 当前架构
+## 3. 测试结果
+
+- Python `compileall` 通过。
+- 无 Key fallback：HTTP 200、`source=rule`、`status=success`、`provider=disabled`。
+- HARD_BLOCK 命中后：HTTP 200、`source=rule_fallback`、`status=fallback`。
+- `fallbackReason` 仅包含规则 ID、类别和路径等非敏感诊断。
+- 七类 HARD_BLOCK 继续有效。
+- 报告固定免责声明存在，8 个章节完整。
+- 敏感信息扫描为 0 命中。
+- 三个 Python 文件均为 UTF-8 无 BOM、LF 且无混合行尾。
+- `git diff --check` 通过。
+
+## 4. 真实 LLM 三只股票复测
+
+| 股票 | HTTP | source | status | provider | model |
+| --- | ---: | --- | --- | --- | --- |
+| SH600519 | 200 | `llm` | `success` | `openai_compatible` | `deepseek-v4-pro` |
+| SZ000001 | 200 | `llm` | `success` | `openai_compatible` | `deepseek-v4-pro` |
+| SZ300750 | 200 | `llm` | `success` | `openai_compatible` | `deepseek-v4-pro` |
+
+三份报告均满足：
+
+- 8 个章节完整，固定免责声明存在。
+- 无交易建议、目标价、仓位建议、收益承诺或未来价格预测。
+- 保留有数据依据的历史状态分析。
+- 无 API Key 泄露。
+
+## 5. 提交状态
+
+- 后端合规补丁已提交。
+- Commit：`c34fd99`
+- Commit message：`feat: refine LLM report compliance handling`
+- Commit 仅包含 `prompts.py`、`compliance.py`、`service.py` 三个后端文件。
+- 当前尚未 push。
+- 当前尚未配置 Render 真实 LLM Key。
+- Git 工作区在本次文档更新前为干净状态。
+
+## 6. 审查说明
+
+- 技术架构Agent：待回传，原因 `systemError`。
+- 投研提示词Agent：待回传，原因 `systemError`。
+- 测试质检Agent：待回传，原因 `systemError`。
+- Commit `c34fd99` 是用户明确授权基于降级审查证据提交。
+- 三个 Agent 未完成独立审查，不得表述为审查通过，也不得编造审查结论。
+
+## 7. 当前架构
 
 - 前端：React + TypeScript + Vite，部署于 Netlify。
 - 后端：FastAPI + Python，部署于 Render。
 - 行情数据：东方财富、AkShare、Sina 等免费数据链路，SQLite 用作本地缓存。
-- 研究报告：前端调用后端 `/api/research/reports`，后端负责事实聚合、LLM 调用、schema 校验、合规扫描和规则版 fallback。
+- 研究报告：前端调用 `/api/research/reports`，后端负责事实聚合、LLM 调用、schema 校验、分级合规检查和规则版 fallback。
 - LLM Key 只能由后端环境变量读取，前端不直连 LLM Provider。
 
-## 4. 当前工作区状态
+## 8. 当前待办
 
-当前有三个未提交的后端文件：
+1. 单独提交 `PROJECT_STATUS.md` 和 `CHANGELOG.md`。
+2. 决定是否将 `c34fd99` 和文档 commit push 到 `main`。
+3. Push 后验证 Render 是否部署到最新 commit。
+4. 在 Render 未配置真实 Key 时，确认线上 fallback 仍正常。
+5. 在本地验证全部通过的前提下，再决定是否在 Render 后端配置 DeepSeek Key。
+6. 线上 Key 只能放入 Render 后端环境变量，禁止进入前端、Git、文档和日志。
 
-- `stock-api/app/research/prompts.py`
-- `stock-api/app/research/compliance.py`
-- `stock-api/app/research/service.py`
-
-状态说明：
-
-- 尚未 commit。
-- 尚未 push。
-- 尚未配置 Render 真实 LLM Key。
-- 当前合规适配补丁只存在于本地工作区。
-- 当前 Git 已提交历史中，后端报告 API、前端报告 API 接入和 V2 首页已分别存档；本轮三文件补丁不在任何已提交 commit 中。
-
-## 5. 当前待处理事项
-
-### 软倾向表达治理
-
-- 重新设计软倾向表达分级治理。
-- 不全面删除“反弹、承压、修复”等词。
-- 允许有明确周期和数据依据的历史状态描述。
-- 禁止未来价格预测、投资建议、交易动作、目标价、仓位建议和收益承诺。
-- 当前软倾向表达分级方案仍是待执行方案，尚未实现。
-- 分级治理完成后，需要重新交由技术架构、投研提示词和测试质检三方只读审查。
-
-### 真实 LLM 复测
-
-后续由用户本人在本地安全注入 Key，复测：
-
-- `SH600519`
-- `SZ000001`
-- `SZ300750`
-
-验收重点：
-
-- HTTP 200。
-- `reportStatus.source=llm`、`status=success`。
-- Provider 和 model 正确。
-- 报告章节完整并包含免责声明。
-- 不输出未来价格预测、投资建议、交易动作、目标价、仓位建议或收益承诺。
-- LLM 失败或违规时仍能返回规则版 fallback。
-
-三只股票真实 LLM 测试通过前，不建议 commit 当前补丁，也不配置 Render 真实 Key。
-
-## 6. 当前产品边界
+## 9. 当前产品边界
 
 - 本项目只做信息整理和研究辅助。
-- 不做自动荐股。
-- 不做股票预测。
-- 不提供买入、卖出、仓位、目标价或收益承诺。
-- 所有报告必须包含免责声明：
-  - “以上内容由系统根据公开行情数据和规则生成，仅用于信息整理和研究辅助，不构成投资建议。”
+- 不做自动荐股或股票预测。
+- 不提供交易建议、仓位建议、目标价或收益承诺。
+- 所有报告必须包含免责声明：“以上内容由系统根据公开行情数据和规则生成，仅用于信息整理和研究辅助，不构成投资建议。”
 - API Key 只能存在于后端环境变量，禁止进入前端、Git、文档和日志。
 - 数据缺失、缓存、降级或 mock 状态必须明确标注，不得伪装为实时真实数据。
