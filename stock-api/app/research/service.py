@@ -132,26 +132,37 @@ class ResearchReportService:
         quote_data = _strip_status(quote) if quote else {}
         detail_data = _strip_status(detail) if detail else {}
         kline_items = list((kline or {}).get("items") or [])[-settings.ai_report_max_kline_items :]
-        news_items = list((detail_data.get("news") or []))[: settings.ai_report_max_news_items]
+        news_items = [
+            _neutralize_news_item(item)
+            for item in list((detail_data.get("news") or []))[: settings.ai_report_max_news_items]
+            if isinstance(item, dict)
+        ]
+        detail_facts = {
+            "quote": detail_data.get("quote") or {},
+            "finance": _neutralize_warning_field(detail_data.get("finance")),
+            "moneyFlow": _neutralize_warning_field(detail_data.get("moneyFlow")),
+            "news": news_items,
+        }
         missing_fields = _missing_fields(quote_data, detail_data, kline_items, overview)
         data_status = _build_data_status(quote, detail, kline, overview, missing_fields)
 
         name = str(quote_data.get("name") or detail_data.get("quote", {}).get("name") or symbol)
-        return {
+        fact_package = {
             "symbol": str(quote_data.get("symbol") or symbol),
             "name": name,
             "quote": quote_data,
-            "detail": detail_data,
-            "finance": detail_data.get("finance") or {},
-            "moneyFlow": detail_data.get("moneyFlow") or {},
+            "detail": detail_facts,
+            "finance": detail_facts["finance"],
+            "moneyFlow": detail_facts["moneyFlow"],
             "news": news_items,
             "klineSummary": _summarize_kline(kline_items),
             "marketOverview": _compact_overview(overview),
             "dataStatus": data_status,
             "dataSources": [f"{item['label']}：{_state_label(item['state'])}" for item in data_status],
             "missingFields": missing_fields,
-            "warnings": [sanitize_rule_text(item) for item in warnings],
+            "warnings": [_neutralize_fact_text(item) for item in warnings],
         }
+        return _neutralize_fact_value(fact_package)
 
     def _resolve_symbol(self, request: ResearchReportRequest) -> str:
         if request.symbol:
@@ -318,7 +329,7 @@ def _status_item(label: str, payload: dict[str, Any] | None, missing_detail: str
         "label": label,
         "state": state,
         "detail": _describe_status(status),
-        "warning": status.get("warning"),
+        "warning": _neutralize_fact_text(status.get("warning")) if status.get("warning") else None,
     }
 
 
@@ -340,7 +351,7 @@ def _summarize_kline(items: list[dict[str, Any]]) -> dict[str, Any]:
     if not items:
         return {
             "available": False,
-            "summary": "技术指标数据不完整，后续需要在K线和成交量补齐后再更新判断。",
+            "summary": "K线和成交量数据暂不可用；该部分仅作数据状态说明。",
         }
     latest = items[-1]
     previous = items[-2] if len(items) > 1 else latest
@@ -350,27 +361,98 @@ def _summarize_kline(items: list[dict[str, Any]]) -> dict[str, Any]:
     volume_ratio = latest_volume / avg_volume if avg_volume else 0
     latest_close = _num(latest.get("close"))
     previous_close = _num(previous.get("close"))
+    previous_change_pct = round((latest_close - previous_close) / previous_close * 100, 2) if previous_close else 0.0
+    recent_change_pct = _recent_change_pct(recent)
     ma20 = _num(latest.get("ma20"))
     above_ma20 = latest_close >= ma20 if ma20 > 0 else None
     volume_state = "active" if volume_ratio >= 1.4 else "thin" if volume_ratio <= 0.65 else "normal"
-    price_text = "短线价格较上一交易日偏强。" if latest_close >= previous_close else "短线价格较上一交易日偏弱。"
-    ma_text = "MA20 数据不足，均线位置需补充确认。" if above_ma20 is None else "价格位于MA20上方，趋势韧性相对更好。" if above_ma20 else "价格位于MA20下方，趋势修复仍需观察。"
-    volume_text = "最近成交量高于20日均量，量能活跃度提升。" if volume_state == "active" else "最近成交量低于20日均量，资金参与度偏弱。" if volume_state == "thin" else "最近成交量接近20日均量，量能暂未显著偏离。"
+    price_text = (
+        f"最新收盘价为 {latest_close:.2f}，较上一交易日变化 {previous_change_pct:+.2f}%，"
+        f"近 {len(recent)} 个交易日涨跌幅为 {recent_change_pct:+.2f}%。"
+    )
+    ma_text = (
+        "MA20 数据暂不可用，均线位置关系需补充公开行情后核对。"
+        if above_ma20 is None
+        else f"收盘价与 MA20 的位置关系为：{'高于' if above_ma20 else '低于'} MA20。"
+    )
+    volume_text = f"最新成交量与近 {len(recent)} 日均量之比为 {volume_ratio:.2f}。"
+    history_notice = "上述数据仅反映历史行情，不能用于预测后续价格变化。"
     return {
         "available": True,
         "latestClose": latest_close,
+        "previousClose": previous_close,
+        "previousChangePct": previous_change_pct,
         "ma5": _num(latest.get("ma5")),
         "ma10": _num(latest.get("ma10")),
         "ma20": ma20,
         "volumeRatio20": round(volume_ratio, 2),
-        "recentChangePct20": _recent_change_pct(items[-20:]),
+        "recentChangePct20": recent_change_pct,
         "aboveMa20": above_ma20,
         "volumeState": volume_state,
         "priceText": price_text,
         "maText": ma_text,
-        "volumeText": f"{volume_text}量能比约 {volume_ratio:.2f}。",
-        "summary": f"{price_text}{ma_text}{volume_text}",
+        "volumeText": volume_text,
+        "summary": f"{price_text}{ma_text}{volume_text}{history_notice}",
     }
+
+
+def _neutralize_news_item(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": str(item.get("id") or ""),
+        "title": _neutralize_fact_text(item.get("title")),
+        "summary": _neutralize_fact_text(item.get("summary") or item.get("description") or ""),
+        "source": _neutralize_fact_text(item.get("source")),
+        "publishedAt": str(item.get("publishedAt") or ""),
+        "url": item.get("url"),
+    }
+
+
+def _neutralize_warning_field(value: object) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    result = dict(value)
+    if result.get("warning"):
+        result["warning"] = _neutralize_fact_text(result["warning"])
+    return result
+
+
+def _neutralize_fact_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _neutralize_fact_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_neutralize_fact_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_neutralize_fact_value(item) for item in value)
+    if isinstance(value, str):
+        return _neutralize_fact_text(value)
+    return value
+
+
+def _neutralize_fact_text(value: object) -> str:
+    text = sanitize_rule_text(value)
+    replacements = (
+        ("资金参与度提升", "成交量发生变化"),
+        ("趋势韧性", "均线位置关系"),
+        ("值得关注", "需结合公开信息复核"),
+        ("暂时回避", "需结合公开信息复核"),
+        ("偏强", "相对变化为正"),
+        ("偏弱", "相对变化为负"),
+        ("强势", "相对变化"),
+        ("机会", "相关线索"),
+        ("看好", "需结合公开信息复核"),
+        ("看淡", "需结合公开信息复核"),
+        ("看多", "需结合公开信息复核"),
+        ("看空", "需结合公开信息复核"),
+        ("配置价值", "数据复核项"),
+        ("上涨空间", "价格变化范围"),
+        ("下跌空间", "价格变化范围"),
+        ("建议重点观察", "需结合公开信息复核"),
+        ("适合关注", "需结合公开信息复核"),
+        ("持续跟踪", "持续复核公开信息"),
+    )
+    for source, target in replacements:
+        text = text.replace(source, target)
+    return text
 
 
 def _compact_overview(overview: dict[str, Any] | None) -> dict[str, Any]:
