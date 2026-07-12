@@ -1,12 +1,14 @@
 # AI投研助手 V2 - 项目状态
 
-更新时间：2026-07-11
+更新时间：2026-07-12
 
 ## 1. 当前阶段
 
-当前处于：**LLM 增强研究报告——本地真实 LLM 联调及合规适配已通过，等待推送与线上部署决策阶段**。
+当前处于：**LLM 增强研究报告——P0 性能与线程回收优化已完成，等待推送与线上部署决策阶段**。
 
 本地 DeepSeek 成功路径、规则版 fallback 和合规降级路径均已验证。后端合规补丁已经提交，但尚未 push，也尚未在 Render 配置真实 LLM Key。
+
+研究报告 P0 性能优化已完成并提交。此前线上无 Key 请求约 69 秒，前端在 60 秒超时后会触发本地 fallback；当前规则版路径已通过最小必要事实聚合消除该阻塞。
 
 ## 2. 已完成事项
 
@@ -30,6 +32,20 @@
 - `rule` / `rule_fallback` 不再被 `CONTEXT_RESTRICTED` 或 `SOFT_WARNING` 误拦截。
 - `news_clues` 章节已限制为新闻和公告事实整理，不再生成系统技术状态分析。
 - 本轮未修改 API 契约、前端、部署配置或数据源 provider。
+
+### 研究报告 P0 性能与线程回收
+
+- 已完成并提交研究报告 P0 性能优化：此前线上无 Key 请求约 69 秒，前端在 60 秒超时后触发本地 fallback。
+- 已定位主要问题：`quote`、`detail`、`kline`、`overview` 串行聚合；可选数据源实时调用可能阻塞；`future` 外层 timeout 无法终止底层阻塞线程。
+- 最终方案：事实聚合增加有界调度和超时预算；可选 `detail` / `overview` 仅使用 fresh/stale 缓存或既有 fallback；不再启动不可取消的实时扩展 provider 调用；`quote` / `kline` 保留为必要数据源。
+- 线程回收测试：连续 10 次阻塞模拟均 HTTP 200，`research-report-fetch` 线程 `before/returned/after` 均为 0，无线程累计，进程可正常退出。
+- 性能结果：SH600519 冷 1.90s / 热 25ms；SZ000001 冷 19ms / 热 6ms；SZ300750 冷 16ms / 热 10ms。
+- 回归结果：无 Key 为 `rule/success/disabled`；HARD_BLOCK 为 `rule_fallback/fallback`；8 个章节和固定免责声明正常。
+- API 契约、前端、provider、部署配置和数据库均未修改。
+- 技术架构Agent：通过。测试质检Agent：通过。
+- Commit：`a782db4`，`perf: bound research report data aggregation`。
+- 当前尚未 push，尚未配置 Render 真实 LLM Key。
+- P1 非阻断待办：finance、moneyFlow、news 字段缺失专项测试；stale/mock 组合测试；quote/kline 底层 HTTP timeout 完整治理。
 
 ## 3. 测试结果
 
@@ -64,7 +80,7 @@
 - Commit：`c34fd99`
 - Commit message：`feat: refine LLM report compliance handling`
 - Commit 仅包含 `prompts.py`、`compliance.py`、`service.py` 三个后端文件。
-- 当前尚未 push。
+- 前序 V2/合规提交已推送至 main；P0 性能优化 commit `a782db4` 尚未 push。
 - 当前尚未配置 Render 真实 LLM Key。
 - Git 工作区在本次文档更新前为干净状态。
 
@@ -86,12 +102,11 @@
 
 ## 8. 当前待办
 
-1. 单独提交 `PROJECT_STATUS.md` 和 `CHANGELOG.md`。
-2. 决定是否将 `c34fd99` 和文档 commit push 到 `main`。
-3. Push 后验证 Render 是否部署到最新 commit。
-4. 在 Render 未配置真实 Key 时，确认线上 fallback 仍正常。
-5. 在本地验证全部通过的前提下，再决定是否在 Render 后端配置 DeepSeek Key。
-6. 线上 Key 只能放入 Render 后端环境变量，禁止进入前端、Git、文档和日志。
+1. 单独提交本次 `PROJECT_STATUS.md` 和 `CHANGELOG.md` 更新。
+2. 决定是否将 `a782db4` 与文档 commit push 到 `main`。
+3. Push 后验证 Render 是否部署到最新 commit，并在未配置真实 Key 时确认线上 fallback 仍正常。
+4. 在本地验证全部通过的前提下，再决定是否在 Render 后端配置 DeepSeek Key；线上 Key 只能放入 Render 后端环境变量，禁止进入前端、Git、文档和日志。
+5. P1 非阻断待办：finance、moneyFlow、news 字段缺失专项测试；stale/mock 组合测试；quote/kline 底层 HTTP timeout 完整治理。
 
 ## 9. 当前产品边界
 

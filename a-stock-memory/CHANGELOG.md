@@ -2,6 +2,17 @@
 
 ## Unreleased - 2026-07-11
 
+### 研究报告 P0 性能与线程回收
+
+- 优化研究报告事实聚合性能，减少无 Key 规则版报告对非必要扩展数据的等待。
+- 修复不可取消的可选数据调用可能导致 `research-report-fetch` 线程残留的问题。
+- 可选 `detail` / `overview` 改为 fresh/stale 缓存或既有 fallback 优先，不再启动不可取消的实时扩展 provider 调用；`quote` / `kline` 保留为必要数据源。
+- 记录性能结果：SH600519 冷 1.90s / 热 25ms，SZ000001 冷 19ms / 热 6ms，SZ300750 冷 16ms / 热 10ms。
+- 记录连续 10 次线程回收模拟：均返回 HTTP 200，线程数无累计，测试进程可正常退出。
+- 已提交 `a782db4`：`perf: bound research report data aggregation`。
+- 上述性能优化 commit 尚未 push，Render 尚未配置真实 LLM Key。
+- P1 非阻断待办：finance、moneyFlow、news 字段缺失专项测试；stale/mock 组合测试；quote/kline 底层 HTTP timeout 完整治理。
+
 ### LLM 合规治理
 
 - Refined LLM report prompts to preserve data-backed historical analysis while prohibiting recommendations and future price predictions.
