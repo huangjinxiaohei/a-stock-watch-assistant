@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,10 @@ from app.research.schemas import DISCLAIMER, LlmReportDraft, ReportStatus, Resea
 from app.symbols import normalize_symbol
 
 
+LOGGER = logging.getLogger(__name__)
+REPORT_FETCH_WORKERS = 4
+
+
 class ResearchReportService:
     def __init__(self) -> None:
         self.mock_provider = MockProvider()
@@ -29,9 +35,11 @@ class ResearchReportService:
     def generate(self, request: ResearchReportRequest) -> ResearchReportResponse:
         started_at = time.perf_counter()
         generated_at = _now_shanghai()
-        facts = self._build_fact_package(request)
+        llm_ready = bool(settings.ai_report_enable_llm and self.llm_client.is_configured)
+        facts = self._build_fact_package(request, include_optional=llm_ready)
 
         if not settings.ai_report_enable_llm:
+            rule_started = time.perf_counter()
             response = build_rule_report(
                 facts,
                 ReportStatus(
@@ -43,9 +51,11 @@ class ResearchReportService:
                 ),
                 generated_at,
             )
+            _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
             return self._finalize(response, started_at)
 
         if not self.llm_client.is_configured:
+            rule_started = time.perf_counter()
             response = build_rule_report(
                 facts,
                 ReportStatus(
@@ -57,12 +67,15 @@ class ResearchReportService:
                 ),
                 generated_at,
             )
+            _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
             return self._finalize(response, started_at)
 
+        llm_started = time.perf_counter()
         try:
             llm_payload = self.llm_client.generate_report(facts)
             draft = LlmReportDraft.model_validate(llm_payload)
             assert_llm_text_compliant(draft.sections, draft.warnings)
+            _log_stage("llm", facts.get("symbol"), llm_started, "success")
             response = ResearchReportResponse(
                 symbol=facts["symbol"],
                 name=facts["name"],
@@ -82,6 +95,8 @@ class ResearchReportService:
             )
             return self._finalize(response, started_at)
         except (LlmClientError, ValueError, ComplianceError) as error:
+            _log_stage("llm", facts.get("symbol"), llm_started, "error")
+            rule_started = time.perf_counter()
             response = build_rule_report(
                 facts,
                 ReportStatus(
@@ -94,40 +109,61 @@ class ResearchReportService:
                 generated_at,
                 warnings=["LLM 增强报告暂不可用，已返回规则版研究报告。"],
             )
+            _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
             return self._finalize(response, started_at)
 
-    def _build_fact_package(self, request: ResearchReportRequest) -> dict[str, Any]:
+    def _build_fact_package(self, request: ResearchReportRequest, include_optional: bool = True) -> dict[str, Any]:
+        aggregate_started = time.perf_counter()
+        symbol_started = time.perf_counter()
         symbol = self._resolve_symbol(request)
+        _log_stage("symbol_parse", symbol, symbol_started, "success")
         warnings: list[str] = []
-        quote = self._safe_fetch(
-            f"stock:{symbol}:quote",
-            60,
-            lambda active: active.quote(symbol),
-            lambda fallback: fallback.stock_detail(symbol)["quote"],
-            warnings,
-        )
-        detail = self._safe_fetch(
-            f"stock:{symbol}:detail",
-            120,
-            lambda active: active.stock_detail(symbol),
-            lambda fallback: fallback.stock_detail(symbol),
-            warnings,
-        )
-        kline = self._safe_fetch(
-            f"stock:{symbol}:kline",
-            24 * 60 * 60,
-            lambda active: active.kline(symbol),
-            lambda fallback: fallback.kline(symbol),
-            warnings,
-            collection_key="items",
-        )
-        overview = self._safe_fetch(
-            "market:overview",
-            600,
-            lambda active: active.market_overview(),
-            lambda fallback: fallback.market_overview(),
-            warnings,
-        )
+        deadline = aggregate_started + settings.ai_report_aggregation_timeout_seconds
+        fetch_specs: dict[str, dict[str, Any]] = {
+            "kline": {
+                "cache_key": f"stock:{symbol}:kline",
+                "ttl_seconds": 24 * 60 * 60,
+                "primary": lambda active: active.kline(symbol),
+                "fallback": lambda fallback: fallback.kline(symbol),
+                "collection_key": "items",
+            },
+        }
+        if include_optional:
+            fetch_specs["detail"] = {
+                "cache_key": f"stock:{symbol}:detail",
+                "ttl_seconds": 120,
+                "primary": lambda active: active.stock_detail(symbol),
+                "fallback": lambda fallback: fallback.stock_detail(symbol),
+                "collection_key": None,
+                "allow_live": False,
+            }
+            fetch_specs["overview"] = {
+                "cache_key": "market:overview",
+                "ttl_seconds": 600,
+                "primary": lambda active: active.market_overview(),
+                "fallback": lambda fallback: fallback.market_overview(),
+                "collection_key": None,
+                "allow_live": False,
+            }
+        else:
+            fetch_specs["quote"] = {
+                "cache_key": f"stock:{symbol}:quote",
+                "ttl_seconds": 60,
+                "primary": lambda active: active.quote(symbol),
+                "fallback": lambda fallback: fallback.stock_detail(symbol)["quote"],
+                "collection_key": None,
+            }
+            _log_stage("detail", symbol, aggregate_started, "skipped", cache_state="not_requested")
+            _log_stage("overview", symbol, aggregate_started, "skipped", cache_state="not_requested")
+
+        results = self._fetch_fact_sources(symbol, fetch_specs, warnings, deadline)
+        quote = results.get("quote")
+        detail = results.get("detail")
+        kline = results.get("kline")
+        overview = results.get("overview")
+        if quote is None and isinstance(detail, dict):
+            quote = _quote_from_detail(detail)
+            _log_stage("quote", symbol, aggregate_started, "derived", cache_state=_cache_state(detail))
 
         quote_data = _strip_status(quote) if quote else {}
         detail_data = _strip_status(detail) if detail else {}
@@ -162,6 +198,7 @@ class ResearchReportService:
             "missingFields": missing_fields,
             "warnings": [_neutralize_fact_text(item) for item in warnings],
         }
+        _log_stage("aggregate_total", symbol, aggregate_started, "success")
         return _neutralize_fact_value(fact_package)
 
     def _resolve_symbol(self, request: ResearchReportRequest) -> str:
@@ -233,10 +270,154 @@ class ResearchReportService:
                 return _with_status(data, "mock", "fallback", None, f"实时数据暂不可用，已使用兜底数据：{sanitize_rule_text(error)}", collection_key)
             raise
 
+    def _fetch_fact_sources(
+        self,
+        symbol: str,
+        specs: dict[str, dict[str, Any]],
+        warnings: list[str],
+        deadline: float,
+    ) -> dict[str, Any | None]:
+        order = ("quote", "detail", "kline", "overview")
+        max_workers = min(REPORT_FETCH_WORKERS, max(1, len(specs)))
+        executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="research-report-fetch")
+        futures = {}
+        stage_starts: dict[str, float] = {}
+        try:
+            for name in order:
+                spec = specs.get(name)
+                if spec is None:
+                    continue
+                stage_starts[name] = time.perf_counter()
+                if spec.get("allow_live") is False:
+                    result = self._cached_or_fallback_fetch(
+                        spec["cache_key"],
+                        spec["ttl_seconds"],
+                        spec["fallback"],
+                        spec["collection_key"],
+                    )
+                    results_status = "success" if result is not None else "skipped"
+                    _log_stage(name, symbol, stage_starts[name], results_status, cache_state=_cache_state(result))
+                    futures[name] = result
+                    continue
+                futures[name] = executor.submit(
+                    self._cached_fetch,
+                    spec["cache_key"],
+                    spec["ttl_seconds"],
+                    spec["primary"],
+                    spec["fallback"],
+                    spec["collection_key"],
+                )
+
+            results: dict[str, Any | None] = {name: None for name in order}
+            for name in order:
+                spec = specs.get(name)
+                future = futures.get(name)
+                if spec is None or future is None:
+                    continue
+                if spec.get("allow_live") is False:
+                    results[name] = future
+                    continue
+
+                remaining = deadline - time.perf_counter()
+                timeout_seconds = min(settings.ai_report_optional_source_timeout_seconds, max(0.0, remaining))
+                if timeout_seconds <= 0:
+                    future.cancel()
+                    result = self._fallback_fetch_result(spec["cache_key"], spec["fallback"], spec["collection_key"], "aggregation deadline reached")
+                    warnings.append(f"{spec['cache_key']} unavailable: aggregation deadline reached")
+                    results[name] = result
+                    _log_stage(name, symbol, stage_starts[name], "timeout", cache_state=_cache_state(result))
+                    continue
+
+                try:
+                    result = future.result(timeout=timeout_seconds)
+                    status = "success" if result is not None else "error"
+                except TimeoutError:
+                    future.cancel()
+                    result = self._fallback_fetch_result(spec["cache_key"], spec["fallback"], spec["collection_key"], "source timeout")
+                    warnings.append(f"{spec['cache_key']} unavailable: source timeout")
+                    status = "timeout"
+                except Exception as error:
+                    safe_error = _safe_message(error)
+                    result = self._fallback_fetch_result(spec["cache_key"], spec["fallback"], spec["collection_key"], safe_error)
+                    warnings.append(f"{spec['cache_key']} unavailable: {safe_error}")
+                    status = "error"
+
+                results[name] = result
+                _log_stage(name, symbol, stage_starts[name], status, cache_state=_cache_state(result))
+            return results
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+    def _cached_or_fallback_fetch(
+        self,
+        cache_key: str,
+        ttl_seconds: int,
+        fallback: Callable[[MockProvider], Any],
+        collection_key: str | None,
+    ) -> dict[str, Any] | None:
+        fresh = self.cache.get(cache_key, ttl_seconds)
+        if fresh is not None:
+            return _with_status(fresh.value, "cache", "fresh", fresh, None, collection_key)
+        return self._fallback_fetch_result(cache_key, fallback, collection_key, "optional live fetch skipped")
+
+    def _fallback_fetch_result(
+        self,
+        cache_key: str,
+        fallback: Callable[[MockProvider], Any],
+        collection_key: str | None,
+        reason: object,
+    ) -> dict[str, Any] | None:
+        stale = self.cache.get_stale(cache_key)
+        if stale is not None:
+            return _with_status(stale.value, "cache", "stale", stale, f"source unavailable; using stale cache: {_safe_message(reason)}", collection_key)
+        if settings.allow_mock_fallback:
+            try:
+                data = fallback(self.mock_provider)
+                return _with_status(data, "mock", "fallback", None, f"source unavailable; using fallback data: {_safe_message(reason)}", collection_key)
+            except Exception:
+                return None
+        return None
+
     def _finalize(self, response: ResearchReportResponse, started_at: float) -> ResearchReportResponse:
         response.reportStatus.latencyMs = int((time.perf_counter() - started_at) * 1000)
         assert_report_compliant(response)
+        _log_stage("total", response.symbol, started_at, "success")
         return response
+
+
+def _log_stage(stage: str, symbol: object, started_at: float, status: str, cache_state: str | None = None) -> None:
+    duration_ms = int((time.perf_counter() - started_at) * 1000)
+    LOGGER.info(
+        "research_report_stage stage=%s symbol=%s duration_ms=%d status=%s cache=%s",
+        stage,
+        str(symbol or ""),
+        duration_ms,
+        status,
+        cache_state or "",
+    )
+
+
+def _cache_state(value: object) -> str | None:
+    if isinstance(value, dict):
+        status = value.get("_dataStatus")
+        if isinstance(status, dict):
+            return str(status.get("mode") or status.get("provider") or "")
+    return None
+
+
+def _quote_from_detail(detail: dict[str, Any]) -> dict[str, Any] | None:
+    quote = detail.get("quote")
+    if not isinstance(quote, dict):
+        return None
+    result = dict(quote)
+    status = detail.get("_dataStatus")
+    if isinstance(status, dict):
+        result["_dataStatus"] = dict(status)
+    return result
+
+
+def _safe_message(value: object) -> str:
+    return sanitize_rule_text(str(value or ""))[:160]
 
 
 def _now_shanghai() -> str:

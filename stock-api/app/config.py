@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from dataclasses import dataclass
@@ -58,6 +58,8 @@ class Settings:
     ai_report_max_news_items: int = _env_int("AI_REPORT_MAX_NEWS_ITEMS", 8, minimum=1)
     ai_report_max_kline_items: int = _env_int("AI_REPORT_MAX_KLINE_ITEMS", 60, minimum=1)
     ai_report_compliance_strict: bool = _env_bool("AI_REPORT_COMPLIANCE_STRICT", True)
+    ai_report_aggregation_timeout_seconds: float = _env_float("AI_REPORT_AGGREGATION_TIMEOUT_SECONDS", 30.0, minimum=1.0)
+    ai_report_optional_source_timeout_seconds: float = _env_float("AI_REPORT_OPTIONAL_SOURCE_TIMEOUT_SECONDS", 8.0, minimum=1.0)
     cors_origins: tuple[str, ...] = tuple(
         origin.strip()
         for origin in _env_str("STOCK_API_CORS_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",")
