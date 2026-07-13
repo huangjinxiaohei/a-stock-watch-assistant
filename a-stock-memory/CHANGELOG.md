@@ -2,6 +2,19 @@
 
 ## Unreleased - 2026-07-11
 
+### P0.1 核心数据质量门禁
+
+- Added independent quote and kline core-data quality gates.
+- Prevented mock、fallback、severely stale or inconsistent core data from producing normal AI-enhanced reports.
+- Kept detail、overview、finance、moneyFlow and news as optional enhancement data.
+- Updated frontend report status to distinguish core data available、core data pending review、core data unavailable、partial enhancement data missing and enhancement data pending review.
+- Prevented rule_fallback from being displayed as a normal AI-enhanced report.
+- Recorded commit e4ad0e4: feat: add core data quality gate for AI reports.
+- Recorded that code has not yet been pushed and Render LLM remains disabled.
+- Recorded V2.1 user-demand-driven product redesign as a future phase, not completed work。
+
+
+
 ### 研究报告 P0 性能与线程回收
 
 - 优化研究报告事实聚合性能，减少无 Key 规则版报告对非必要扩展数据的等待。

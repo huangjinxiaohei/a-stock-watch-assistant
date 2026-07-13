@@ -1,14 +1,16 @@
 # AI投研助手 V2 - 项目状态
 
-更新时间：2026-07-12
+更新时间：2026-07-13
 
 ## 1. 当前阶段
 
-当前处于：**LLM 增强研究报告——P0 性能与线程回收优化已完成，等待推送与线上部署决策阶段**。
+当前处于：**LLM 增强研究报告——P0.1 核心数据质量门禁已完成，等待推送与线上无 Key 回归阶段**。
 
 本地 DeepSeek 成功路径、规则版 fallback 和合规降级路径均已验证。后端合规补丁已经提交，但尚未 push，也尚未在 Render 配置真实 LLM Key。
 
 研究报告 P0 性能优化已完成并提交。此前线上无 Key 请求约 69 秒，前端在 60 秒超时后会触发本地 fallback；当前规则版路径已通过最小必要事实聚合消除该阻塞。
+
+P0.1 核心数据质量门禁已完成并提交。当前 Render 的 AI_REPORT_ENABLE_LLM 仍为 false，尚未配置真实 LLM Key。
 
 ## 2. 已完成事项
 
@@ -46,6 +48,21 @@
 - Commit：`a782db4`，`perf: bound research report data aggregation`。
 - 当前尚未 push，尚未配置 Render 真实 LLM Key。
 - P1 非阻断待办：finance、moneyFlow、news 字段缺失专项测试；stale/mock 组合测试；quote/kline 底层 HTTP timeout 完整治理。
+
+### 研究报告 P0.1 核心数据质量门禁
+
+- 核心数据正式定义为独立 quote 和 kline。
+- 可选增强数据为 detail、overview、finance、moneyFlow、news。
+- detail.quote 不再替代独立核心 quote。
+- 以下情况会在调用 LLM 前转为 rule_fallback：quote 或 kline 缺失、来源为 mock/fallback、核心数据严重 stale、收盘后价格明显不一致、交易日明显不一致。
+- 盘中 quote 与日 K 收盘价不同不会仅凭价格差误拦截。
+- 可选增强数据缺失不会阻断可信核心数据下的 AI 报告，并在前端标注增强数据状态。
+- 前端已区分：AI增强报告 + 核心数据可用、核心数据待复核、降级整理稿 + 核心数据不可用、部分增强数据缺失、增强数据待复核。
+- API 契约、数据源 provider、部署配置和环境变量均未修改。
+- 后端 compileall、前端 typecheck 和 build 均通过；构建仅保留既有 ECharts chunk 体积警告。
+- 技术架构Agent和测试质检Agent均审查通过。
+- Commit：e4ad0e4，feat: add core data quality gate for AI reports。
+- 当前尚未 push，Render AI_REPORT_ENABLE_LLM 仍为 false。
 
 ## 3. 测试结果
 
@@ -102,11 +119,14 @@
 
 ## 8. 当前待办
 
-1. 单独提交本次 `PROJECT_STATUS.md` 和 `CHANGELOG.md` 更新。
-2. 决定是否将 `a782db4` 与文档 commit push 到 `main`。
+1. 单独提交本次 PROJECT_STATUS.md 和 CHANGELOG.md 更新。
+2. 决定是否将 e4ad0e4 与文档 commit push 到 main。
 3. Push 后验证 Render 是否部署到最新 commit，并在未配置真实 Key 时确认线上 fallback 仍正常。
-4. 在本地验证全部通过的前提下，再决定是否在 Render 后端配置 DeepSeek Key；线上 Key 只能放入 Render 后端环境变量，禁止进入前端、Git、文档和日志。
-5. P1 非阻断待办：finance、moneyFlow、news 字段缺失专项测试；stale/mock 组合测试；quote/kline 底层 HTTP timeout 完整治理。
+4. 验证核心 mock/fallback 时前端显示“降级整理稿”和“核心数据不可用”。
+5. 在本地验证全部通过的前提下，再决定是否在 Render 后端配置 DeepSeek Key；线上 Key 只能放入 Render 后端环境变量，禁止进入前端、Git、文档和日志。
+6. P0.1 线上回归通过后，正式启动 V2.1 用户需求驱动改版。
+7. V2.1 待规划方向：重大事件与公告、业绩变化、风险与后续观察事项、行业外部因素、估值解释。
+8. P1 非阻断待办：finance、moneyFlow、news 字段缺失专项测试；stale/mock 组合测试；quote/kline 底层 HTTP timeout 完整治理。
 
 ## 9. 当前产品边界
 
@@ -116,3 +136,4 @@
 - 所有报告必须包含免责声明：“以上内容由系统根据公开行情数据和规则生成，仅用于信息整理和研究辅助，不构成投资建议。”
 - API Key 只能存在于后端环境变量，禁止进入前端、Git、文档和日志。
 - 数据缺失、缓存、降级或 mock 状态必须明确标注，不得伪装为实时真实数据。
+- V2.1 用户需求驱动改版目前仅为待规划事项，不得写成已完成。
