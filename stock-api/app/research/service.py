@@ -54,7 +54,7 @@ class ResearchReportService:
                     source="rule",
                     status="success",
                     provider="disabled",
-                    model=settings.llm_model or None,
+                    model=None,
                     fallbackReason="AI_REPORT_ENABLE_LLM=false",
                 ),
                 generated_at,
