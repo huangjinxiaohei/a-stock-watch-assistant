@@ -23,6 +23,14 @@ from app.symbols import normalize_symbol
 
 LOGGER = logging.getLogger(__name__)
 REPORT_FETCH_WORKERS = 4
+CORE_PRICE_MISMATCH_THRESHOLD = 0.03
+CORE_STALE_MAX_SECONDS = 24 * 60 * 60
+MARKET_CLOSE_HOUR = 15
+MARKET_CLOSE_MINUTE = 0
+
+
+class CoreDataQualityError(ValueError):
+    pass
 
 
 class ResearchReportService:
@@ -64,6 +72,23 @@ class ResearchReportService:
                     provider="unavailable",
                     model=settings.llm_model or None,
                     fallbackReason="LLM configuration incomplete",
+                ),
+                generated_at,
+            )
+            _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
+            return self._finalize(response, started_at)
+
+        core_issue = _core_data_quality_issue(facts)
+        if core_issue is not None:
+            rule_started = time.perf_counter()
+            response = build_rule_report(
+                facts,
+                ReportStatus(
+                    source="rule_fallback",
+                    status="fallback",
+                    provider=settings.llm_provider or "openai_compatible",
+                    model=settings.llm_model or None,
+                    fallbackReason=core_issue,
                 ),
                 generated_at,
             )
@@ -120,6 +145,13 @@ class ResearchReportService:
         warnings: list[str] = []
         deadline = aggregate_started + settings.ai_report_aggregation_timeout_seconds
         fetch_specs: dict[str, dict[str, Any]] = {
+            "quote": {
+                "cache_key": f"stock:{symbol}:quote",
+                "ttl_seconds": 60,
+                "primary": lambda active: active.quote(symbol),
+                "fallback": lambda fallback: fallback.stock_detail(symbol)["quote"],
+                "collection_key": None,
+            },
             "kline": {
                 "cache_key": f"stock:{symbol}:kline",
                 "ttl_seconds": 24 * 60 * 60,
@@ -146,13 +178,6 @@ class ResearchReportService:
                 "allow_live": False,
             }
         else:
-            fetch_specs["quote"] = {
-                "cache_key": f"stock:{symbol}:quote",
-                "ttl_seconds": 60,
-                "primary": lambda active: active.quote(symbol),
-                "fallback": lambda fallback: fallback.stock_detail(symbol)["quote"],
-                "collection_key": None,
-            }
             _log_stage("detail", symbol, aggregate_started, "skipped", cache_state="not_requested")
             _log_stage("overview", symbol, aggregate_started, "skipped", cache_state="not_requested")
 
@@ -161,9 +186,6 @@ class ResearchReportService:
         detail = results.get("detail")
         kline = results.get("kline")
         overview = results.get("overview")
-        if quote is None and isinstance(detail, dict):
-            quote = _quote_from_detail(detail)
-            _log_stage("quote", symbol, aggregate_started, "derived", cache_state=_cache_state(detail))
 
         quote_data = _strip_status(quote) if quote else {}
         detail_data = _strip_status(detail) if detail else {}
@@ -197,6 +219,10 @@ class ResearchReportService:
             "dataSources": [f"{item['label']}：{_state_label(item['state'])}" for item in data_status],
             "missingFields": missing_fields,
             "warnings": [_neutralize_fact_text(item) for item in warnings],
+            "coreStatus": {
+                "quote": (quote or {}).get("_dataStatus") if isinstance(quote, dict) else None,
+                "kline": (kline or {}).get("_dataStatus") if isinstance(kline, dict) else None,
+            },
         }
         _log_stage("aggregate_total", symbol, aggregate_started, "success")
         return _neutralize_fact_value(fact_package)
@@ -405,15 +431,91 @@ def _cache_state(value: object) -> str | None:
     return None
 
 
-def _quote_from_detail(detail: dict[str, Any]) -> dict[str, Any] | None:
-    quote = detail.get("quote")
-    if not isinstance(quote, dict):
+def _core_data_quality_issue(facts: dict[str, Any]) -> str | None:
+    quote = facts.get("quote") if isinstance(facts.get("quote"), dict) else {}
+    kline_summary = facts.get("klineSummary") if isinstance(facts.get("klineSummary"), dict) else {}
+    core_status = facts.get("coreStatus") if isinstance(facts.get("coreStatus"), dict) else {}
+    quote_status = core_status.get("quote") if isinstance(core_status.get("quote"), dict) else {}
+    kline_status = core_status.get("kline") if isinstance(core_status.get("kline"), dict) else {}
+
+    if not quote or _num(quote.get("latestPrice")) <= 0:
+        return "CORE_QUOTE_UNAVAILABLE at core.quote"
+    if not kline_summary.get("available") or _num(kline_summary.get("latestClose")) <= 0:
+        return "CORE_KLINE_UNAVAILABLE at core.kline"
+
+    quote_mode = str(quote_status.get("mode") or "")
+    quote_provider = str(quote_status.get("provider") or "")
+    kline_mode = str(kline_status.get("mode") or "")
+    kline_provider = str(kline_status.get("provider") or "")
+    if quote_provider == "mock" or quote_mode == "fallback":
+        return "CORE_QUOTE_MOCK at core.quote"
+    if kline_provider == "mock" or kline_mode == "fallback":
+        return "CORE_KLINE_FALLBACK at core.kline"
+
+    stale_reason = _core_stale_issue("quote", quote_status) or _core_stale_issue("kline", kline_status)
+    if stale_reason is not None:
+        return stale_reason
+
+    return _core_price_consistency_issue(quote, kline_summary)
+
+
+def _core_stale_issue(label: str, status: dict[str, Any]) -> str | None:
+    mode = str(status.get("mode") or "")
+    if mode not in {"stale", "stale_refreshing"}:
         return None
-    result = dict(quote)
-    status = detail.get("_dataStatus")
-    if isinstance(status, dict):
-        result["_dataStatus"] = dict(status)
-    return result
+    age = _num(status.get("cacheAgeSeconds"))
+    if age > CORE_STALE_MAX_SECONDS:
+        return f"CORE_DATA_STALE at core.{label}"
+    return None
+
+
+def _core_price_consistency_issue(quote: dict[str, Any], kline_summary: dict[str, Any]) -> str | None:
+    quote_time = _parse_datetime(quote.get("updateTime"))
+    kline_date = _parse_date(kline_summary.get("latestDate"))
+    if quote_time is None or kline_date is None:
+        return None
+    if not _is_after_market_close(quote_time):
+        return None
+    if quote_time.date() != kline_date:
+        return "CORE_TRADE_DATE_MISMATCH at core.quote_kline"
+    quote_price = _num(quote.get("latestPrice"))
+    kline_close = _num(kline_summary.get("latestClose"))
+    if quote_price <= 0 or kline_close <= 0:
+        return None
+    if abs(quote_price - kline_close) / kline_close > CORE_PRICE_MISMATCH_THRESHOLD:
+        return "CORE_PRICE_MISMATCH at core.quote_kline"
+    return None
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M"):
+        try:
+            return datetime.strptime(text[:19], fmt)
+        except ValueError:
+            pass
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _parse_date(value: object):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(text[:10], fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def _is_after_market_close(value: datetime) -> bool:
+    return (value.hour, value.minute) >= (MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE)
 
 
 def _safe_message(value: object) -> str:
@@ -560,6 +662,7 @@ def _summarize_kline(items: list[dict[str, Any]]) -> dict[str, Any]:
     history_notice = "上述数据仅反映历史行情，不能用于预测后续价格变化。"
     return {
         "available": True,
+        "latestDate": str(latest.get("date") or ""),
         "latestClose": latest_close,
         "previousClose": previous_close,
         "previousChangePct": previous_change_pct,
