@@ -51,6 +51,18 @@
 - Commit `c34fd99` 由用户明确授权基于降级审查证据提交，不代表三个独立 Agent 已审查通过。
 - 代码尚未 push，Render 尚未配置真实 LLM Key。
 
+
+### P0.1 disabled 状态收尾修复
+
+- Fixed disabled LLM report status incorrectly exposing the configured model name.
+- When LLM reporting is disabled: `provider=disabled` and `model=null`.
+- Preserved configured model information for LLM success and LLM failure fallback states.
+- Recorded commit `f2052c3`: `fix: hide model when LLM reports are disabled`.
+- Recorded that the fix has not yet been pushed.
+- Recorded that Render LLM remains disabled.
+- Final browser verification is still pending.
+- `a-stock-memory/USER_REQUIREMENTS_AND_PRODUCT_REVAMP.md` is intentionally excluded from this commit.
+
 ## V2.0.0 - 2026-07-08
 
 ### 已完成

@@ -4,7 +4,7 @@
 
 ## 1. 当前阶段
 
-当前处于：**LLM 增强研究报告——P0.1 核心数据质量门禁已完成，等待推送与线上无 Key 回归阶段**。
+当前处于：**LLM 增强研究报告——P0.1 收尾修复已完成，等待推送、Render 部署与线上人工回归阶段**
 
 本地 DeepSeek 成功路径、规则版 fallback 和合规降级路径均已验证。后端合规补丁已经提交，但尚未 push，也尚未在 Render 配置真实 LLM Key。
 
@@ -127,6 +127,19 @@ P0.1 核心数据质量门禁已完成并提交。当前 Render 的 AI_REPORT_EN
 6. P0.1 线上回归通过后，正式启动 V2.1 用户需求驱动改版。
 7. V2.1 待规划方向：重大事件与公告、业绩变化、风险与后续观察事项、行业外部因素、估值解释。
 8. P1 非阻断待办：finance、moneyFlow、news 字段缺失专项测试；stale/mock 组合测试；quote/kline 底层 HTTP timeout 完整治理。
+
+
+## P0.1 disabled 状态收尾修复
+
+- LLM disabled：`source=rule`、`status=success`、`provider=disabled`、`model=null`。
+- LLM 调用失败：`source=rule_fallback`、`status=fallback`、`provider=openai_compatible`，保留实际配置模型。
+- LLM 成功：`source=llm`、`status=success`、`provider=openai_compatible`，保留实际配置模型。
+- 三种场景均验证 HTTP 200、八个章节完整、固定免责声明存在。
+- API 契约、前端、provider 和部署配置均未修改；`compileall`、`git diff --check`通过，未发现真实 API Key 泄露。
+- Commit：`f2052c3`，`fix: hide model when LLM reports are disabled`。
+- 当前尚未 push，Render `AI_REPORT_ENABLE_LLM` 仍为 `false`。
+- 待办：提交项目记忆文档，推送代码与文档 commit，等待 Render 部署，并由用户在浏览器手动验证 600519 的请求路径、HTTP 状态、核心数据状态、规则整理稿、免责声明和 Console。
+- `a-stock-memory/USER_REQUIREMENTS_AND_PRODUCT_REVAMP.md` 当前仍未跟踪、未提交，不代表已正式纳入项目规范。
 
 ## 9. 当前产品边界
 
