@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -86,6 +86,22 @@ class ResearchReportSection(BaseModel):
         return value
 
 
+class MajorEventItem(BaseModel):
+    eventId: str
+    symbol: str
+    title: str
+    eventType: str
+    publishedAt: str
+    sourceName: str
+    sourceUrl: str | None = None
+    status: str
+    summary: str
+    affectedAreas: list[str] = Field(default_factory=list)
+    needsFollowUp: list[str] = Field(default_factory=list)
+    dataStatus: dict[str, Any] = Field(default_factory=dict)
+    classificationReason: str
+
+
 class ResearchReportResponse(BaseModel):
     symbol: str
     name: str
@@ -97,6 +113,7 @@ class ResearchReportResponse(BaseModel):
     sections: list[ResearchReportSection]
     disclaimer: str = DISCLAIMER
     warnings: list[str] = Field(default_factory=list)
+    majorEvents: list[MajorEventItem] = Field(default_factory=list)
 
 
 class LlmReportDraft(BaseModel):

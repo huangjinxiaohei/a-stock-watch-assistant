@@ -16,6 +16,7 @@ from app.providers.akshare_provider import AkShareProvider
 from app.providers.mock_provider import MockProvider
 from app.research.compliance import ComplianceError, assert_llm_text_compliant, assert_report_compliant, sanitize_rule_text
 from app.research.llm_client import LlmClient, LlmClientError
+from app.research.major_events import build_major_events
 from app.research.rule_report import build_rule_report
 from app.research.schemas import DISCLAIMER, LlmReportDraft, ReportStatus, ResearchReportRequest, ResearchReportResponse
 from app.symbols import normalize_symbol
@@ -117,6 +118,7 @@ class ResearchReportService:
                 sections=draft.sections,
                 disclaimer=DISCLAIMER,
                 warnings=[sanitize_rule_text(item) for item in draft.warnings],
+                majorEvents=facts.get("majorEvents") or [],
             )
             return self._finalize(response, started_at)
         except (LlmClientError, ValueError, ComplianceError) as error:
@@ -178,7 +180,12 @@ class ResearchReportService:
                 "allow_live": False,
             }
         else:
-            _log_stage("detail", symbol, aggregate_started, "skipped", cache_state="not_requested")
+            fetch_specs["detail"] = {
+                "cache_key": f"stock:{symbol}:detail",
+                "ttl_seconds": 120,
+                "collection_key": None,
+                "cache_only": True,
+            }
             _log_stage("overview", symbol, aggregate_started, "skipped", cache_state="not_requested")
 
         results = self._fetch_fact_sources(symbol, fetch_specs, warnings, deadline)
@@ -195,6 +202,8 @@ class ResearchReportService:
             for item in list((detail_data.get("news") or []))[: settings.ai_report_max_news_items]
             if isinstance(item, dict)
         ]
+        detail_status = (detail or {}).get("_dataStatus") if isinstance(detail, dict) else None
+        major_events = build_major_events(symbol, news_items, detail_status)
         detail_facts = {
             "quote": detail_data.get("quote") or {},
             "finance": _neutralize_warning_field(detail_data.get("finance")),
@@ -213,6 +222,7 @@ class ResearchReportService:
             "finance": detail_facts["finance"],
             "moneyFlow": detail_facts["moneyFlow"],
             "news": news_items,
+            "majorEvents": major_events,
             "klineSummary": _summarize_kline(kline_items),
             "marketOverview": _compact_overview(overview),
             "dataStatus": data_status,
@@ -314,6 +324,12 @@ class ResearchReportService:
                 if spec is None:
                     continue
                 stage_starts[name] = time.perf_counter()
+                if spec.get("cache_only") is True:
+                    result = self._cached_only_fetch(spec["cache_key"], spec["ttl_seconds"], spec["collection_key"])
+                    results_status = "success" if result is not None else "skipped"
+                    _log_stage(name, symbol, stage_starts[name], results_status, cache_state=_cache_state(result))
+                    futures[name] = result
+                    continue
                 if spec.get("allow_live") is False:
                     result = self._cached_or_fallback_fetch(
                         spec["cache_key"],
@@ -340,7 +356,7 @@ class ResearchReportService:
                 future = futures.get(name)
                 if spec is None or future is None:
                     continue
-                if spec.get("allow_live") is False:
+                if spec.get("cache_only") is True or spec.get("allow_live") is False:
                     results[name] = future
                     continue
 
@@ -373,6 +389,15 @@ class ResearchReportService:
             return results
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
+
+    def _cached_only_fetch(self, cache_key: str, ttl_seconds: int, collection_key: str | None) -> dict[str, Any] | None:
+        fresh = self.cache.get(cache_key, ttl_seconds)
+        if fresh is not None:
+            return _with_status(fresh.value, "cache", "fresh", fresh, None, collection_key)
+        stale = self.cache.get_stale(cache_key)
+        if stale is not None:
+            return _with_status(stale.value, "cache", "stale", stale, "optional live fetch skipped; using stale cache", collection_key)
+        return None
 
     def _cached_or_fallback_fetch(
         self,

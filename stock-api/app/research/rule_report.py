@@ -71,6 +71,7 @@ def build_rule_report(
         sections=sections,
         disclaimer=DISCLAIMER,
         warnings=safe_warnings,
+        majorEvents=facts.get("majorEvents") or [],
     )
 
 
