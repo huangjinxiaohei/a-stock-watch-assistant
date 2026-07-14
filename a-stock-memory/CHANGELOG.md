@@ -86,3 +86,39 @@
 ## V1.0.0
 
 - 完成 A 股股票查询、市场行情展示、自选股、市场排行和个股详情等基础能力。
+
+## Unreleased - 2026-07-14
+
+### Added
+
+- Added rule-based major event clues to research reports.
+- Added optional `majorEvents` response data as a backward-compatible extension.
+- Added event classification, date-window filtering, deduplication, ranking and follow-up states.
+- Added `MajorEventsOverview` before the report data-status section.
+- Added empty, pending-review and unavailable-source states.
+- Added the user-driven product revamp requirements document.
+
+### Fixed
+
+- Improved duplicate-event selection to prefer authoritative, traceable, fresh and complete sources.
+- Preserved substantive follow-up developments instead of incorrectly deduplicating them.
+- Fixed homepage crashes when `marketStats` fields are missing.
+
+### Validation
+
+- Backend compile and rule regressions passed.
+- Frontend typecheck and production build passed.
+- Desktop and 390px mobile browser smoke tests passed.
+- The existing ECharts/Charts chunk-size warning remains.
+- No sensitive API credentials were found in the submitted files.
+- Render LLM remains disabled.
+- Real browser validation covered the currently available empty-event state; constructed event variants were covered by rule tests and frontend logic rather than live browser data.
+
+### Commits
+
+- `9a89901` - `feat: add major event clues to research reports`
+- `879f1a8` - `feat: show major event clues in research reports`
+- `5e9a259` - `fix: prevent homepage crash on missing market stats`
+- `f904445` - `docs: add user-driven product revamp requirements`
+
+These commits have not been pushed or deployed.

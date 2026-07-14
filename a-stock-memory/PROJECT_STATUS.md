@@ -150,3 +150,67 @@ P0.1 核心数据质量门禁已完成并提交。当前 Render 的 AI_REPORT_EN
 - API Key 只能存在于后端环境变量，禁止进入前端、Git、文档和日志。
 - 数据缺失、缓存、降级或 mock 状态必须明确标注，不得伪装为实时真实数据。
 - V2.1 用户需求驱动改版目前仅为待规划事项，不得写成已完成。
+
+## V2.1.1 Major Event Clues - Current Status
+
+Current phase: V2.1 user-demand-driven product revision; the first subphase is V2.1.1 major event clues.
+
+### Product Positioning
+
+- P0.1 core-data quality gates have completed online acceptance.
+- The product now prioritizes information that ordinary quote screens do not integrate quickly: major event clues, earnings changes, risks, industry and external factors, valuation context, and follow-up observations.
+- The current capability is major event clues, not a formal announcement center.
+- The implementation reuses `stock_detail.news` / `ak.stock_news_em`; no standalone company announcement, exchange announcement, or regulator feed has been added.
+- Ordinary news must not be packaged as a formal announcement or a confirmed major event.
+
+### Backend Implementation
+
+- Added optional, backward-compatible `majorEvents` response data.
+- Added rule-based event classification, date windows, deduplication, ranking, status and follow-up handling.
+- Recent 30-day events are prioritized; substantive unfinished events within 90 days are retained.
+- The default display limit is 3 and the maximum is 5; insufficient data is not padded with fabricated events.
+- mock, fallback and abnormal dates cannot become confirmed events. stale, missing URLs, weak classification and unfinished items are shown as pending review.
+- Duplicate selection prefers authoritative sources, valid URLs, fresh data, newer same-level entries and complete fields. Substantive follow-up developments are retained.
+- LLM is not responsible for deciding whether an event is major and cannot add events, change event status or infer price direction.
+
+Backend commit: `9a89901` - `feat: add major event clues to research reports`.
+
+### Frontend Implementation
+
+- Added `MajorEventsOverview` after report metadata and before report data status.
+- Displays date, type, title, source, status, summary, source link and follow-up items. Missing URLs show an unavailable-link state.
+- The frontend does not reclassify, deduplicate, reorder or upgrade ordinary news. Missing `majorEvents` remains backward compatible.
+- The report sections, data status, source status and disclaimer remain intact.
+
+Frontend commit: `879f1a8` - `feat: show major event clues in research reports`.
+
+### Homepage Stability Fix
+
+- Fixed the homepage crash caused by incomplete `marketStats` fields.
+- The fix uses existing quote samples for field-level fallback, adds no data source and does not fabricate market data.
+
+Commit: `5e9a259` - `fix: prevent homepage crash on missing market stats`.
+
+### Validation
+
+- Backend compile, event classification, 30-day priority, 90-day unfinished retention, duplicate-event preference, empty state, no-Key rule fallback, HARD_BLOCK fallback, 8 sections and disclaimer checks passed.
+- Frontend `pnpm typecheck` and `pnpm build` passed. The existing ECharts/Charts chunk-size warning remains the only build warning.
+- Desktop browser smoke test passed for the currently available empty-event state, report ordering, disclaimer, API request flow, no white screen and no new Console errors.
+- 390px mobile smoke test passed with no horizontal overflow.
+- Constructed 1/3/5-event, missing URL, stale, mock and fallback variants were covered by rule tests and frontend logic; they were not all triggered by live browser data and must not be recorded as browser-confirmed.
+
+### Commit and Deployment State
+
+- User requirements document commit: `f904445` - `docs: add user-driven product revamp requirements`.
+- The four V2.1.1 commits are complete and remain unpushed: `9a89901`, `879f1a8`, `5e9a259`, `f904445`.
+- The Git working tree was clean before this memory update.
+- `stock-web/dist` is not tracked. No provider, deployment configuration, environment variable or API key was changed.
+- Render LLM remains disabled. No Render or Netlify deployment claim is made in this update.
+
+### Remaining Steps
+
+1. Commit this project-memory update.
+2. Push the five commits to `main` only after user confirmation.
+3. Wait for Render and Netlify deployment, then run online no-Key regression.
+4. Verify the major event clues module and homepage crash fix online.
+5. Keep Render LLM disabled until online fallback and data-quality checks are complete.
