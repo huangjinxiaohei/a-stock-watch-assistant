@@ -1,5 +1,6 @@
 ﻿import { CheckCircle2, Info, Loader2, Sparkles } from "lucide-react";
 import type { ReportStatus, ResearchDataState, ResearchDataStatusItem, ResearchReport } from "../analysis/researchReport";
+import { MajorEventsOverview } from "./MajorEventsOverview";
 
 interface ResearchReportPanelProps {
   report: ResearchReport | null;
@@ -97,6 +98,8 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
               <strong>{sourceView?.label || "规则整理稿"}</strong>
             </div>
           </div>
+
+          <MajorEventsOverview majorEvents={report.majorEvents} />
 
           <section className="research-data-status" aria-label="报告数据状态">
             <div className="research-data-status-header">

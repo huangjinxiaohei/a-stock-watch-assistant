@@ -30,6 +30,21 @@ export interface ResearchReportSection {
   points: string[];
 }
 
+export interface MajorEventItem {
+  eventId: string;
+  symbol: string;
+  title: string;
+  eventType: string;
+  publishedAt: string;
+  sourceName: string;
+  sourceUrl?: string | null;
+  status: string;
+  summary: string;
+  affectedAreas: string[];
+  needsFollowUp: string[];
+  dataStatus?: Record<string, unknown>;
+}
+
 export interface ResearchReport {
   symbol: string;
   name: string;
@@ -41,6 +56,7 @@ export interface ResearchReport {
   sections: ResearchReportSection[];
   disclaimer: string;
   warnings?: string[];
+  majorEvents?: MajorEventItem[];
 }
 
 interface GenerateResearchReportInput {

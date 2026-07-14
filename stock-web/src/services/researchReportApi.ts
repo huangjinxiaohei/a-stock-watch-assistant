@@ -1,4 +1,4 @@
-import { RESEARCH_DISCLAIMER, type ReportSource, type ReportStatusValue, type ResearchDataState, type ResearchReport } from "../analysis/researchReport";
+import { RESEARCH_DISCLAIMER, type MajorEventItem, type ReportSource, type ReportStatusValue, type ResearchDataState, type ResearchReport } from "../analysis/researchReport";
 
 const apiBaseUrl = import.meta.env.VITE_STOCK_API_BASE_URL ?? "";
 const requestTimeoutMs = Number(import.meta.env.VITE_STOCK_REQUEST_TIMEOUT_MS ?? 60000);
@@ -78,8 +78,27 @@ function parseBackendResearchReport(value: unknown): ResearchReport {
     missingFields: toStringArray(value.missingFields),
     sections,
     disclaimer,
-    warnings: toStringArray(value.warnings)
+    warnings: toStringArray(value.warnings),
+    majorEvents: parseMajorEvents(value.majorEvents)
   };
+}
+
+function parseMajorEvents(value: unknown): MajorEventItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 5).filter(isRecord).map((item) => ({
+    eventId: toSafeString(item.eventId),
+    symbol: toSafeString(item.symbol),
+    title: toSafeString(item.title),
+    eventType: toSafeString(item.eventType),
+    publishedAt: toSafeString(item.publishedAt),
+    sourceName: toSafeString(item.sourceName),
+    sourceUrl: typeof item.sourceUrl === "string" ? item.sourceUrl : null,
+    status: toSafeString(item.status),
+    summary: toSafeString(item.summary),
+    affectedAreas: toStringArray(item.affectedAreas),
+    needsFollowUp: toStringArray(item.needsFollowUp),
+    dataStatus: isRecord(item.dataStatus) ? item.dataStatus : undefined
+  }));
 }
 
 function parseSection(value: unknown) {
@@ -106,6 +125,10 @@ function parseDataStatusItem(value: unknown) {
 
 function toStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
+}
+
+function toSafeString(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
