@@ -427,7 +427,27 @@ function findIndex(indexes: MarketIndex[], name: string): MarketIndex | undefine
 }
 
 function buildMarketStats(overview: MarketOverview | null, watchQuotes: Quote[]): MarketStats {
-  if (overview?.marketStats) return overview.marketStats;
+  const fallbackStats = buildFallbackMarketStats(overview, watchQuotes);
+  const stats = overview?.marketStats;
+  if (!stats) return fallbackStats;
+
+  return {
+    risingCount: finiteNumber(stats.risingCount, fallbackStats.risingCount),
+    fallingCount: finiteNumber(stats.fallingCount, fallbackStats.fallingCount),
+    flatCount: finiteNumber(stats.flatCount, fallbackStats.flatCount),
+    limitUpCount: finiteNumber(stats.limitUpCount, fallbackStats.limitUpCount),
+    limitDownCount: finiteNumber(stats.limitDownCount, fallbackStats.limitDownCount),
+    totalAmount: finiteNumber(stats.totalAmount, fallbackStats.totalAmount),
+    activeAmount: finiteNumber(stats.activeAmount, fallbackStats.activeAmount),
+    mainNetInflow: finiteNumber(stats.mainNetInflow, 0),
+    mainFundAvailable: stats.mainFundAvailable === true && Number.isFinite(stats.mainNetInflow),
+    mainFundSource: stats.mainFundSource || fallbackStats.mainFundSource,
+    northboundNetInflow: finiteNumber(stats.northboundNetInflow, 0),
+    northboundAvailable: stats.northboundAvailable === true && Number.isFinite(stats.northboundNetInflow),
+    northboundSource: stats.northboundSource || fallbackStats.northboundSource
+  };
+}
+function buildFallbackMarketStats(overview: MarketOverview | null, watchQuotes: Quote[]): MarketStats {
   const quotes = [...(overview?.gainers || []), ...(overview?.losers || []), ...watchQuotes];
   const unique = Array.from(new Map(quotes.map((quote) => [quote.symbol, quote])).values());
   return {
@@ -447,6 +467,9 @@ function buildMarketStats(overview: MarketOverview | null, watchQuotes: Quote[])
   };
 }
 
+function finiteNumber(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
 function getRankingQuotes(overview: MarketOverview | null, tab: RankingTab): RankingItem[] {
   if (!overview) return [];
   if (tab === "gainers") return overview.gainers;
