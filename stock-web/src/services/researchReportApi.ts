@@ -1,4 +1,4 @@
-import { RESEARCH_DISCLAIMER, type MajorEventItem, type ReportSource, type ReportStatusValue, type ResearchDataState, type ResearchReport } from "../analysis/researchReport";
+import { RESEARCH_DISCLAIMER, type FinancialExplanation, type FinancialMetric, type MajorEventItem, type ReportSource, type ReportStatusValue, type ResearchDataState, type ResearchReport } from "../analysis/researchReport";
 
 const apiBaseUrl = import.meta.env.VITE_STOCK_API_BASE_URL ?? "";
 const requestTimeoutMs = Number(import.meta.env.VITE_STOCK_REQUEST_TIMEOUT_MS ?? 60000);
@@ -79,7 +79,60 @@ function parseBackendResearchReport(value: unknown): ResearchReport {
     sections,
     disclaimer,
     warnings: toStringArray(value.warnings),
-    majorEvents: parseMajorEvents(value.majorEvents)
+    majorEvents: parseMajorEvents(value.majorEvents),
+    financialExplanation: parseFinancialExplanation(value.financialExplanation)
+  };
+}
+
+function parseFinancialExplanation(value: unknown): FinancialExplanation | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) return missingFinancialExplanation();
+
+  return {
+    status: typeof value.status === "string" && value.status ? value.status : "missing",
+    asOfDate: typeof value.asOfDate === "string" ? value.asOfDate : null,
+    sourceName: toSafeString(value.sourceName),
+    revenueGrowth: parseFinancialMetric(value.revenueGrowth),
+    netProfitGrowth: parseFinancialMetric(value.netProfitGrowth),
+    grossMargin: parseFinancialMetric(value.grossMargin),
+    roe: parseFinancialMetric(value.roe),
+    debtRatio: parseFinancialMetric(value.debtRatio),
+    eps: parseFinancialMetric(value.eps),
+    changePattern: toSafeString(value.changePattern),
+    summary: toSafeString(value.summary),
+    confirmedFacts: toStringArray(value.confirmedFacts),
+    limitations: toStringArray(value.limitations),
+    needsFollowUp: toStringArray(value.needsFollowUp),
+    dataStatus: isRecord(value.dataStatus) ? value.dataStatus : undefined
+  };
+}
+
+function missingFinancialExplanation(): FinancialExplanation {
+  return {
+    status: "missing",
+    asOfDate: null,
+    sourceName: "",
+    revenueGrowth: parseFinancialMetric(null),
+    netProfitGrowth: parseFinancialMetric(null),
+    grossMargin: parseFinancialMetric(null),
+    roe: parseFinancialMetric(null),
+    debtRatio: parseFinancialMetric(null),
+    eps: parseFinancialMetric(null),
+    changePattern: "",
+    summary: "",
+    confirmedFacts: [],
+    limitations: [],
+    needsFollowUp: [],
+    dataStatus: undefined
+  };
+}
+
+function parseFinancialMetric(value: unknown): FinancialMetric {
+  if (!isRecord(value)) return { value: null, unit: "", available: false };
+  return {
+    value: typeof value.value === "number" && Number.isFinite(value.value) ? value.value : null,
+    unit: toSafeString(value.unit),
+    available: value.available === true
   };
 }
 

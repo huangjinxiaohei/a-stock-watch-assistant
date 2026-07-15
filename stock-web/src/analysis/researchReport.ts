@@ -45,6 +45,32 @@ export interface MajorEventItem {
   dataStatus?: Record<string, unknown>;
 }
 
+export type FinancialExplanationStatus = "available" | "partial" | "missing" | string;
+
+export interface FinancialMetric {
+  value: number | null;
+  unit: string;
+  available: boolean;
+}
+
+export interface FinancialExplanation {
+  status: FinancialExplanationStatus;
+  asOfDate?: string | null;
+  sourceName: string;
+  revenueGrowth: FinancialMetric;
+  netProfitGrowth: FinancialMetric;
+  grossMargin: FinancialMetric;
+  roe: FinancialMetric;
+  debtRatio: FinancialMetric;
+  eps: FinancialMetric;
+  changePattern: string;
+  summary: string;
+  confirmedFacts: string[];
+  limitations: string[];
+  needsFollowUp: string[];
+  dataStatus?: Record<string, unknown>;
+}
+
 export interface ResearchReport {
   symbol: string;
   name: string;
@@ -57,6 +83,7 @@ export interface ResearchReport {
   disclaimer: string;
   warnings?: string[];
   majorEvents?: MajorEventItem[];
+  financialExplanation?: FinancialExplanation | null;
 }
 
 interface GenerateResearchReportInput {
