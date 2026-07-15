@@ -81,6 +81,9 @@ class AkShareProvider:
         }
     def quote(self, symbol: str) -> dict[str, Any]:
         normalized = normalize_symbol(symbol)
+        direct_record = self._eastmoney_single_quote_record(normalized)
+        if direct_record:
+            return self._quote_from_spot(direct_record)
         for row in self._spot_records():
             if normalize_symbol(str(row.get(C_CODE, ""))).code == normalized.code:
                 return self._quote_from_spot(row)
@@ -264,6 +267,35 @@ class AkShareProvider:
         if total > page_size and len(records) < total * 0.8:
             return []
         return [self._eastmoney_record_from_diff(item) for item in records if isinstance(item, dict)]
+
+    def _eastmoney_single_quote_record(self, normalized: Any) -> dict[str, Any] | None:
+        market_prefix = "1" if normalized.market == "SH" else "0"
+        params = {
+            "secid": f"{market_prefix}.{normalized.code}",
+            "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+            "fields": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f115",
+        }
+        for trust_env in (False, True):
+            session = requests.Session()
+            session.trust_env = trust_env
+            try:
+                response = session.get(
+                    "https://push2delay.eastmoney.com/api/qt/stock/get",
+                    params=params,
+                    headers={
+                        "Accept": "application/json,text/plain,*/*",
+                        "Referer": "https://quote.eastmoney.com/",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+                    },
+                    timeout=3,
+                )
+                response.raise_for_status()
+                data = response.json().get("data") or {}
+            except Exception:
+                continue
+            if isinstance(data, dict) and str(data.get("f12", "")) == normalized.code:
+                return self._eastmoney_record_from_diff(data)
+        return None
 
     def _fetch_eastmoney_spot_page(self, url: str, trust_env: bool, page: int, page_size: int) -> dict[str, Any]:
         session = requests.Session()
