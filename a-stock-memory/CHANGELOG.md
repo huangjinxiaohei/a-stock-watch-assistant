@@ -198,3 +198,23 @@ These commits have not been pushed or deployed.
 ### Commit
 
 - `f80512d` - `fix: prioritize single-stock quote snapshots`
+## Unreleased - 2026-07-15 - Final Product Freeze
+
+### Changed
+
+- Standardized user-facing research data labels for available, stale, mock, fallback, missing and partial states.
+- Reworded the display-only technical-state title to “技术状态需关注” without changing server risk rules.
+
+### Added
+
+- Added a root README with deployment, architecture, quality-gate, fallback, module and limitation documentation.
+- Added `a-stock-memory/JOB_SEARCH_PACKAGE.md` with resume, interview and role-specific project materials.
+- Added `a-stock-memory/SCREENSHOT_CHECKLIST.md` for truthful, privacy-safe product screenshots.
+
+### Validation and boundaries
+
+- The verified SH600519 no-Key sample returned HTTP 200 in approximately 1.502 seconds with `rule/success/disabled/model=null`, eight sections and the fixed disclaimer.
+- SH600519 previously demonstrated fresh cached quote, kline and detail data, ten non-mock news items and two major-event clues. Data availability remains dependent on the cache window and free upstream services.
+- Financial indicators may return empty upstream records and money-flow requests may fail; both remain explicit limitations.
+- LLM remains disabled on Render. No real credential, provider configuration, new upstream source or investment recommendation was added.
+- Feature development is frozen; formal announcements, valuation, industry factors, multi-period financial trends, user accounts, report history and AI Q&A remain Roadmap items.

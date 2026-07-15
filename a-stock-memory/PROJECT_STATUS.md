@@ -311,3 +311,33 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 - `SZ000001` and `SZ300750` still showed intermittent source timeouts after a fresh deployment. Mock/fallback states remain transparent and continue to trigger the existing data-quality behavior.
 - Render LLM remains disabled. No API key, deployment configuration, frontend code or report product structure was changed in this stabilization round.
 - Follow-up limitation: a stable demo relies on a timestamped fresh cache window. A persistent, explicitly timestamped real-cache demo sample may be considered later only with separate user approval; it is not implemented here.
+## Final Product Freeze and Job-Ready Packaging - 2026-07-15
+
+### Freeze status
+
+- 功能开发正式冻结。本版本不再新增估值解释、行业外部因素、正式公告中心、多期财务趋势、新数据源、用户系统、报告历史或 AI 问答；这些事项进入 Roadmap，需单独评审。
+- 产品继续只做信息整理和研究辅助，不做自动荐股、买卖点、仓位、目标价、收益预测或确定性价格预测。
+- Render 保持 `AI_REPORT_ENABLE_LLM=false`；未配置或记录真实 API Key。
+
+### Latest verified demonstration evidence
+
+- `SH600519` 曾在当前免费数据链路上返回 AkShare fresh 缓存的 quote、K线和 detail，以及 10 条非 mock 新闻。
+- 已确认的无 Key 报告样本：HTTP 200、约 1.502 秒、`rule/success/disabled/model=null`、8 个章节和固定免责声明完整；包含 2 条 fresh 重大事件线索、`financialExplanation=missing` 的安全限制状态和 `riskOverview=partial`。
+- `SZ000001` 与 `SZ300750` 用于展示上游超时、mock/fallback、核心数据门禁和安全空状态。它们的实际状态随上游变化，不将降级数据呈现为真实数据。
+
+### Known limitations
+
+- 财务指标上游当前可能返回空记录；资金流上游当前可能发生连接中断。两者均以缺失或限制状态呈现，不生成经营原因。
+- 稳定演示依赖带时间戳的 fresh 缓存窗口。持久化、显式标记的真实缓存演示样本是后续可选方案，当前未实现。
+- 重大事件为可核验线索，不是完整公告中心；业绩变化概览为最新一期事实快照，不是完整原因归因。
+
+### Final regression and deliverables
+
+- 最终回归覆盖后端 compileall、核心报告/majorEvents/financialExplanation/riskOverview/质量门禁/disabled/fallback/HARD_BLOCK，以及前端 typecheck、build、桌面与约 390px 视图检查。
+- 根目录 `README.md` 记录架构、演示、数据质量门禁、已知限制和 Roadmap。
+- `a-stock-memory/JOB_SEARCH_PACKAGE.md` 提供简历、面试与岗位定制材料；`a-stock-memory/SCREENSHOT_CHECKLIST.md` 规定真实截图、状态标注和隐私处理。
+
+### Roadmap
+
+- 在另行评审稳定、合规的数据基础后，再考虑正式公告、估值、行业外部因素、多期财务、报告历史、用户系统与 AI 问答。
+- 不把上述 Roadmap 事项写成已完成功能。
