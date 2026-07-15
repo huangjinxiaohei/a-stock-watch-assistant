@@ -172,8 +172,29 @@ These commits have not been pushed or deployed.
 - Frontend typecheck and production build passed; the existing Charts/ECharts chunk warning remains.
 - Degraded and missing data produce limitations or follow-up items rather than confirmed risks.
 - No new upstream request, provider connection, deployment setting, environment variable or sensitive credential was added.
-- Changes have not yet been pushed or deployed; Render LLM remains disabled.
+- The V2.1.3 code and documentation were pushed to `main`; Render LLM remains disabled.
 
 ### Commits
 
-- Pending until validation is complete: backend risk overview, frontend risk overview and browser-title fix, and this documentation update.
+- `3353396` - `feat: add risk and watch overview to research reports`
+- `d3929e7` - `feat: show risk and watch overview in research reports`
+- `4dd300e` - `docs: record risk and watch overview implementation`
+
+## Unreleased - 2026-07-15 - Data Availability Stabilization
+
+### Fixed
+
+- Prioritized an existing Eastmoney single-stock snapshot before the full-market snapshot path for quote retrieval.
+- Preserved the existing full-market, AkShare, Sina, cache and mock fallback behavior when the single-stock request is unavailable.
+
+### Validation
+
+- Added a unit test proving a successful single-stock snapshot avoids the full-market request.
+- Backend compile and unit test passed.
+- Online `SH600519` demonstrated fresh AkShare quote, kline and detail cache data, ten non-mock news items, and a no-Key rule report in 1.502 seconds.
+- Financial and money-flow source failures remained visible as unavailable data; they were not converted to fresh or confirmed content.
+- Render LLM remains disabled. No credential, provider configuration or frontend direct-provider connection was added.
+
+### Commit
+
+- `f80512d` - `fix: prioritize single-stock quote snapshots`

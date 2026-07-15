@@ -296,7 +296,18 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 
 ### Deployment state and boundaries
 
-- The V2.1.3 code and documentation are not yet pushed or deployed at the time of this update.
+- The V2.1.3 code and documentation were pushed to `main` and validated online; Render LLM remains disabled.
 - Render LLM remains disabled.
 - Live browser acceptance must report the actual riskOverview state. Constructed rule cases do not count as live confirmation of every risk state.
 - This module is risk and follow-up information organization, not investment advice or a price forecast.
+
+## Data Availability and Demo Stability - 2026-07-15
+
+- Added a single-stock Eastmoney quote snapshot fast path before the existing full-market snapshot fallback. The change stays within the existing free Eastmoney/AkShare/Sina chain and does not change the core-data quality gate.
+- Code commit: `f80512d` - `fix: prioritize single-stock quote snapshots`.
+- Online two-round source sampling after the Render deployment confirmed a real-data demonstration path for `SH600519`: quote, kline and detail were cached AkShare `fresh`; detail contained 10 non-mock news items.
+- The confirmed no-Key report sample for `SH600519` returned HTTP 200 in 1.502 seconds with `source=rule`, `status=success`, `provider=disabled`, `model=null`, eight sections and the fixed disclaimer. It included two fresh major-event clues and a partial risk/watch overview.
+- Financial indicators remained unavailable because the current AkShare financial indicator endpoint returned no records. Money-flow remained unavailable because the existing Eastmoney request aborted. Both remain explicitly marked unavailable; neither is presented as fresh data.
+- `SZ000001` and `SZ300750` still showed intermittent source timeouts after a fresh deployment. Mock/fallback states remain transparent and continue to trigger the existing data-quality behavior.
+- Render LLM remains disabled. No API key, deployment configuration, frontend code or report product structure was changed in this stabilization round.
+- Follow-up limitation: a stable demo relies on a timestamped fresh cache window. A persistent, explicitly timestamped real-cache demo sample may be considered later only with separate user approval; it is not implemented here.
