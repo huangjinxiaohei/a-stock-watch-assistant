@@ -274,4 +274,4 @@ These commits have not been pushed or deployed.
 - `066026f` - `feat: add manual AI report generation mode`
 - `68c2456` - `feat: add manual AI report enhancement flow`
 
-These commits have not yet been pushed or deployed.
+The feature commits were pushed to `main`. Render OpenAPI and the Netlify bundle were verified after deployment. One online rule-mode SH600519 request returned in 2.004 seconds with `rule/success/not_requested/model=null`, eight sections, the extension modules, and the disclaimer. The AI-mode request was intentionally skipped because preflight core quote and kline were both `mock/fallback`; it would not have reached the LLM.

@@ -400,5 +400,6 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 - Backend compile and 11 unit tests passed, including default rule mode, disabled AI mode, core-data block without LLM invocation, single budgeted AI call, timeout fallback, and success fallback paths.
 - Frontend typecheck and production build passed; the existing Charts/ECharts chunk-size warning remains.
 - Local browser checks passed for rule-first reporting, the manual AI action, disabled-AI fallback preserving the rule report, and a 390px viewport with no horizontal overflow or Console errors.
-- Commits awaiting push: `066026f` (`feat: add manual AI report generation mode`) and `68c2456` (`feat: add manual AI report enhancement flow`).
-- Render LLM configuration was not changed by this implementation. Deployment and at most one online AI-mode request remain pending.
+- Feature commits pushed to `main`: `066026f` (`feat: add manual AI report generation mode`) and `68c2456` (`feat: add manual AI report enhancement flow`).
+- Render LLM configuration was not changed by this implementation. Render and Netlify deployment behavior was verified: OpenAPI exposes `generationMode`, the Netlify bundle contains the new client marker, and an online rule-mode SH600519 report returned in 2.004 seconds with `rule/success/not_requested/model=null`, eight sections, all three extension modules, and the fixed disclaimer.
+- The single AI-mode online request was intentionally not sent: preflight quote and kline were both `mock/fallback`, so the core-data gate would have returned a controlled `CORE_*` fallback without exercising the model. AI success/timeout behavior remains covered by deterministic local tests until a separate fresh-core-data test is authorized.
