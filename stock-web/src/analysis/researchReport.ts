@@ -1,4 +1,4 @@
-﻿import type { DataSeries, DataStatus, KlinePoint, MarketOverview, Quote, StockDetail } from "../services/stockData";
+import type { DataSeries, DataStatus, KlinePoint, MarketOverview, Quote, StockDetail } from "../services/stockData";
 import { formatMoney, formatNumber, formatPercent } from "../utils/format";
 
 export const RESEARCH_DISCLAIMER = "以上内容由系统根据公开行情数据和规则生成，仅用于信息整理和研究辅助，不构成投资建议。";
@@ -331,15 +331,15 @@ function formatAge(seconds: number): string {
 }
 
 const stateLabel: Record<ResearchDataState, string> = {
-  available: "可用",
-  partial: "部分可用",
-  missing: "暂不可用"
+  available: "数据可用",
+  partial: "部分数据可用，仍需复核",
+  missing: "当前数据不可用"
 };
 
 const statusModeLabel: Record<string, string> = {
-  live: "实时",
-  fresh: "新鲜缓存",
-  stale: "旧缓存",
-  stale_refreshing: "旧缓存刷新中",
-  fallback: "降级兜底"
+  live: "数据可用",
+  fresh: "数据可用",
+  stale: "缓存数据待更新",
+  stale_refreshing: "缓存数据待更新",
+  fallback: "降级数据，不能作为确认结论"
 };

@@ -1,4 +1,4 @@
-﻿import { CheckCircle2, Info, Loader2, Sparkles } from "lucide-react";
+import { CheckCircle2, Info, Loader2, Sparkles } from "lucide-react";
 import type { ReportStatus, ResearchDataState, ResearchDataStatusItem, ResearchReport } from "../analysis/researchReport";
 import { FinancialChangeOverview } from "./FinancialChangeOverview";
 import { MajorEventsOverview } from "./MajorEventsOverview";
@@ -298,8 +298,8 @@ function getHardCoreIssue(item: ResearchDataStatusItem | undefined): string {
   if (!item) return "";
   const text = `${item.label} ${item.detail} ${item.warning || ""}`.toLowerCase();
   if (item.state === "missing") return `${item.label}暂不可用。`;
-  if (text.includes("mock")) return `${item.label}为模拟数据。`;
-  if (text.includes("fallback") || text.includes("降级")) return `${item.label}处于降级状态。`;
+  if (text.includes("mock")) return `${item.label}为模拟数据，仅供界面兜底。`;
+  if (text.includes("fallback") || text.includes("降级")) return `${item.label}为降级数据，不能作为确认结论。`;
   return "";
 }
 
@@ -332,7 +332,7 @@ function getCoreReasonLabel(reason: string): string {
 }
 
 const dataStateLabel: Record<ResearchDataState, string> = {
-  available: "可用",
-  partial: "部分可用",
-  missing: "暂不可用"
+  available: "数据可用",
+  partial: "部分数据可用，仍需复核",
+  missing: "当前数据不可用"
 };

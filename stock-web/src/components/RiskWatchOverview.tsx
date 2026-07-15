@@ -64,7 +64,7 @@ function RiskCard({ item }: { item: RiskItem }) {
       <div className="risk-watch-item-header">
         <div>
           <span>{item.category}</span>
-          <h4>{item.title}</h4>
+          <h4>{riskTitleLabel(item.title)}</h4>
         </div>
         <div className="risk-watch-item-meta">
           <span className={`risk-watch-chip severity-${item.severity}`}>{severityLabel(item.severity)}</span>
@@ -72,7 +72,7 @@ function RiskCard({ item }: { item: RiskItem }) {
         </div>
       </div>
       <p>{item.evidence}</p>
-      <span>来源字段：{item.sourceType}</span>
+      <span>来源字段：{sourceTypeLabel(item.sourceType)}</span>
       {item.needsFollowUp.length > 0 ? (
         <div className="risk-watch-item">
           <strong><AlertTriangle size={14} /> 待复核</strong>
@@ -108,4 +108,20 @@ function riskItemStatusLabel(value: string): string {
 
 function riskStatusLabel(value: string): string {
   return value === "available" ? "已有事实" : value === "partial" ? "部分待复核" : "数据暂不可用";
+}
+
+function riskTitleLabel(value: string): string {
+  return value === "技术状态异常" ? "技术状态需关注" : value;
+}
+
+function sourceTypeLabel(value: string): string {
+  return {
+    coreStatus: "核心行情状态",
+    klineSummary: "技术数据摘要",
+    financialExplanation: "财务数据完整性",
+    missingFields: "缺失字段",
+    dataStatus: "数据状态",
+    warning: "数据提示",
+    warnings: "数据提示"
+  }[value] || value;
 }

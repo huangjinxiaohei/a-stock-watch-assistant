@@ -8,7 +8,7 @@ export function DataSourceStatus({ status, label }: { status?: DataStatus; label
         <Database size={16} />
         <div>
           <strong>{label ? `${label}：数据源状态未知` : "数据源状态未知"}</strong>
-          <p>当前接口未返回数据源状态，可能仍在使用旧服务或 mock 数据。</p>
+          <p>当前接口未返回数据源状态，可能仍在使用旧服务或模拟数据，仅供界面兜底。</p>
         </div>
       </div>
     );
@@ -29,24 +29,23 @@ export function DataSourceStatus({ status, label }: { status?: DataStatus; label
           {status.cacheAgeSeconds > 0 ? ` · ${formatAge(status.cacheAgeSeconds)} 前更新` : ""}
         </p>
         {status.coverageNote ? <p className="status-warning">字段提示：{status.coverageNote}</p> : null}
-        {status.warning ? <p className="status-warning">状态提示：{status.warning.slice(0, 120)}</p> : null}
+        {status.warning ? <p className="status-warning">数据提示：{status.warning.slice(0, 120)}</p> : null}
       </div>
     </div>
   );
 }
 
 function getModeLabel(mode: string): string {
-  if (mode === "live") return "实时真实数据";
-  if (mode === "fresh") return "真实数据缓存（新鲜）";
-  if (mode === "stale") return "真实数据缓存（实时刷新失败，使用旧数据）";
-  if (mode === "fallback") return "模拟数据兜底";
-  return `数据状态：${mode}`;
+  if (mode === "live" || mode === "fresh") return "数据可用";
+  if (mode === "stale" || mode === "stale_refreshing") return "缓存数据待更新";
+  if (mode === "fallback") return "降级数据，不能作为确认结论";
+  return "当前数据不可用";
 }
 
 function getProviderLabel(provider: string): string {
   if (provider === "akshare") return "东方财富 / AkShare 免费接口";
   if (provider === "cache") return "本地 SQLite 缓存";
-  if (provider === "mock") return "本地模拟数据";
+  if (provider === "mock") return "模拟数据，仅供界面兜底";
   return provider;
 }
 
