@@ -86,6 +86,8 @@ def assert_report_compliant(report: ResearchReportResponse) -> None:
     _scan_or_raise(report.missingFields, "missingFields", strict=False)
     for index, item in enumerate(report.dataStatus):
         _scan_or_raise([item.label, item.detail, item.warning or ""], f"dataStatus[{index}]", strict=False)
+    if report.financialExplanation is not None:
+        _scan_financial_explanation(report.financialExplanation)
     _scan_or_raise(report.warnings, "warnings", strict=False)
 
 
@@ -133,6 +135,42 @@ def _scan_or_raise(texts: list[str], path: str, *, strict: bool = True) -> None:
         if finding.severity == "block":
             raise ComplianceError(finding.rule_id, finding.category, finding.path)
 
+
+def _scan_financial_explanation(value: object) -> None:
+    if not isinstance(value, dict):
+        if hasattr(value, "model_dump"):
+            value = value.model_dump()
+        else:
+            return
+    _scan_display_value(value.get("summary"), "financialExplanation.summary")
+    _scan_display_value(value.get("confirmedFacts"), "financialExplanation.confirmedFacts")
+    _scan_display_value(value.get("limitations"), "financialExplanation.limitations")
+    _scan_display_value(value.get("needsFollowUp"), "financialExplanation.needsFollowUp")
+    data_status = value.get("dataStatus")
+    if isinstance(data_status, dict):
+        _scan_display_value(data_status.get("warning"), "financialExplanation.dataStatus.warning")
+
+
+def _scan_display_value(value: object, path: str, depth: int = 0) -> None:
+    if value is None or isinstance(value, (bool, int, float)) or depth > 4:
+        return
+    if isinstance(value, str):
+        if value.strip():
+            _scan_single_or_raise(value, path, strict=False)
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _scan_display_value(item, f"{path}[{index}]", depth + 1)
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _scan_display_value(item, f"{path}.{key}", depth + 1)
+
+
+def _scan_single_or_raise(text: str, path: str, *, strict: bool = True) -> None:
+    finding = _scan_text(str(text), path, strict=strict)
+    if finding is not None and finding.severity == "block":
+        raise ComplianceError(finding.rule_id, finding.category, finding.path)
 
 def _collect_findings(texts: list[str], path: str, *, strict: bool = True) -> list[ComplianceFinding]:
     findings: list[ComplianceFinding] = []

@@ -102,6 +102,30 @@ class MajorEventItem(BaseModel):
     classificationReason: str
 
 
+class FinancialMetric(BaseModel):
+    value: float | None = None
+    unit: str
+    available: bool = False
+
+
+class FinancialExplanation(BaseModel):
+    status: str
+    asOfDate: str | None = None
+    sourceName: str
+    revenueGrowth: FinancialMetric
+    netProfitGrowth: FinancialMetric
+    grossMargin: FinancialMetric
+    roe: FinancialMetric
+    debtRatio: FinancialMetric
+    eps: FinancialMetric
+    changePattern: str
+    summary: str
+    confirmedFacts: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    needsFollowUp: list[str] = Field(default_factory=list)
+    dataStatus: dict[str, Any] = Field(default_factory=dict)
+
+
 class ResearchReportResponse(BaseModel):
     symbol: str
     name: str
@@ -114,6 +138,7 @@ class ResearchReportResponse(BaseModel):
     disclaimer: str = DISCLAIMER
     warnings: list[str] = Field(default_factory=list)
     majorEvents: list[MajorEventItem] = Field(default_factory=list)
+    financialExplanation: FinancialExplanation | None = None
 
 
 class LlmReportDraft(BaseModel):

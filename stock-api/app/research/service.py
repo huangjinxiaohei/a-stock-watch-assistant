@@ -15,10 +15,11 @@ from app.config import settings
 from app.providers.akshare_provider import AkShareProvider
 from app.providers.mock_provider import MockProvider
 from app.research.compliance import ComplianceError, assert_llm_text_compliant, assert_report_compliant, sanitize_rule_text
+from app.research.financial_facts import build_financial_explanation
 from app.research.llm_client import LlmClient, LlmClientError
 from app.research.major_events import build_major_events
 from app.research.rule_report import build_rule_report
-from app.research.schemas import DISCLAIMER, LlmReportDraft, ReportStatus, ResearchReportRequest, ResearchReportResponse
+from app.research.schemas import DISCLAIMER, SECTION_TITLES, LlmReportDraft, ReportStatus, ResearchReportRequest, ResearchReportResponse, ResearchReportSection
 from app.symbols import normalize_symbol
 
 
@@ -119,6 +120,7 @@ class ResearchReportService:
                 disclaimer=DISCLAIMER,
                 warnings=[sanitize_rule_text(item) for item in draft.warnings],
                 majorEvents=facts.get("majorEvents") or [],
+                financialExplanation=facts.get("financialExplanation"),
             )
             return self._finalize(response, started_at)
         except (LlmClientError, ValueError, ComplianceError) as error:
@@ -204,6 +206,7 @@ class ResearchReportService:
         ]
         detail_status = (detail or {}).get("_dataStatus") if isinstance(detail, dict) else None
         major_events = build_major_events(symbol, news_items, detail_status)
+        financial_explanation = build_financial_explanation(detail_data.get("finance"), detail_status)
         detail_facts = {
             "quote": detail_data.get("quote") or {},
             "finance": _neutralize_warning_field(detail_data.get("finance")),
@@ -223,6 +226,7 @@ class ResearchReportService:
             "moneyFlow": detail_facts["moneyFlow"],
             "news": news_items,
             "majorEvents": major_events,
+            "financialExplanation": financial_explanation,
             "klineSummary": _summarize_kline(kline_items),
             "marketOverview": _compact_overview(overview),
             "dataStatus": data_status,
@@ -431,9 +435,98 @@ class ResearchReportService:
 
     def _finalize(self, response: ResearchReportResponse, started_at: float) -> ResearchReportResponse:
         response.reportStatus.latencyMs = int((time.perf_counter() - started_at) * 1000)
-        assert_report_compliant(response)
+        try:
+            assert_report_compliant(response)
+        except ComplianceError as error:
+            LOGGER.warning(
+                "research_report_final_compliance_blocked symbol=%s rule=%s category=%s path=%s",
+                response.symbol,
+                error.rule_id,
+                error.category,
+                error.path,
+            )
+            response = _safe_finalize_fallback(response, error)
+            response.reportStatus.latencyMs = int((time.perf_counter() - started_at) * 1000)
+            try:
+                assert_report_compliant(response)
+            except ComplianceError as second_error:
+                LOGGER.error(
+                    "research_report_safe_fallback_blocked symbol=%s rule=%s category=%s path=%s",
+                    response.symbol,
+                    second_error.rule_id,
+                    second_error.category,
+                    second_error.path,
+                )
+                response = _minimal_safe_report(response, second_error)
+                response.reportStatus.latencyMs = int((time.perf_counter() - started_at) * 1000)
+                assert_report_compliant(response)
         _log_stage("total", response.symbol, started_at, "success")
         return response
+
+
+def _safe_finalize_fallback(response: ResearchReportResponse, error: ComplianceError) -> ResearchReportResponse:
+    fallback_reason = sanitize_rule_text(str(error)[:240])
+    safe = response.model_copy(deep=True)
+    safe.reportStatus = ReportStatus(
+        source="rule_fallback",
+        status="fallback",
+        provider=response.reportStatus.provider,
+        model=response.reportStatus.model,
+        fallbackReason=fallback_reason,
+        latencyMs=response.reportStatus.latencyMs,
+    )
+    if error.path.startswith("financialExplanation") and safe.financialExplanation is not None:
+        safe.financialExplanation = _safe_financial_explanation(safe.financialExplanation)
+        return safe
+    return _minimal_safe_report(safe, error)
+
+
+def _safe_financial_explanation(value: object) -> object:
+    if not hasattr(value, "model_copy"):
+        return value
+    data_status = dict(getattr(value, "dataStatus", {}) or {})
+    data_status["state"] = "unavailable"
+    data_status["warning"] = "财务概览可展示文本已安全降级，需补充复核。"
+    return value.model_copy(
+        update={
+            "status": "unavailable",
+            "summary": "业绩变化概览：可展示文本已安全降级，结构化指标仅作事实整理，需结合正式财务资料复核。",
+            "confirmedFacts": [],
+            "limitations": [
+                "当前仅保留服务端结构化指标字段。",
+                "该概览不支持经营原因归因、环比或多期趋势判断。",
+            ],
+            "needsFollowUp": ["结合正式财务资料复核数据口径和披露范围。"],
+            "dataStatus": data_status,
+        }
+    )
+
+
+def _minimal_safe_report(response: ResearchReportResponse, error: ComplianceError) -> ResearchReportResponse:
+    return ResearchReportResponse(
+        symbol=response.symbol,
+        name=response.name,
+        generatedAt=response.generatedAt,
+        reportStatus=ReportStatus(
+            source="rule_fallback",
+            status="fallback",
+            provider=response.reportStatus.provider,
+            model=response.reportStatus.model,
+            fallbackReason=sanitize_rule_text(str(error)[:240]),
+            latencyMs=response.reportStatus.latencyMs,
+        ),
+        dataSources=[],
+        dataStatus=[],
+        missingFields=[],
+        sections=[
+            ResearchReportSection(title=title, points=[DISCLAIMER] if title == "免责声明" else ["公开数据整理暂时进入安全降级，需补充复核。"])
+            for title in SECTION_TITLES
+        ],
+        disclaimer=DISCLAIMER,
+        warnings=[],
+        majorEvents=[],
+        financialExplanation=_safe_financial_explanation(response.financialExplanation) if response.financialExplanation is not None else None,
+    )
 
 
 def _log_stage(stage: str, symbol: object, started_at: float, status: str, cache_state: str | None = None) -> None:
