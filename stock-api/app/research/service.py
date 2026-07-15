@@ -18,6 +18,7 @@ from app.research.compliance import ComplianceError, assert_llm_text_compliant, 
 from app.research.financial_facts import build_financial_explanation
 from app.research.llm_client import LlmClient, LlmClientError
 from app.research.major_events import build_major_events
+from app.research.risk_facts import build_risk_overview
 from app.research.rule_report import build_rule_report
 from app.research.schemas import DISCLAIMER, SECTION_TITLES, LlmReportDraft, ReportStatus, ResearchReportRequest, ResearchReportResponse, ResearchReportSection
 from app.symbols import normalize_symbol
@@ -121,6 +122,7 @@ class ResearchReportService:
                 warnings=[sanitize_rule_text(item) for item in draft.warnings],
                 majorEvents=facts.get("majorEvents") or [],
                 financialExplanation=facts.get("financialExplanation"),
+                riskOverview=facts.get("riskOverview"),
             )
             return self._finalize(response, started_at)
         except (LlmClientError, ValueError, ComplianceError) as error:
@@ -238,6 +240,7 @@ class ResearchReportService:
                 "kline": (kline or {}).get("_dataStatus") if isinstance(kline, dict) else None,
             },
         }
+        fact_package["riskOverview"] = build_risk_overview(fact_package)
         _log_stage("aggregate_total", symbol, aggregate_started, "success")
         return _neutralize_fact_value(fact_package)
 
@@ -526,6 +529,7 @@ def _minimal_safe_report(response: ResearchReportResponse, error: ComplianceErro
         warnings=[],
         majorEvents=[],
         financialExplanation=_safe_financial_explanation(response.financialExplanation) if response.financialExplanation is not None else None,
+        riskOverview=response.riskOverview,
     )
 
 

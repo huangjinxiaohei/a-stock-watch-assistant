@@ -126,6 +126,35 @@ class FinancialExplanation(BaseModel):
     dataStatus: dict[str, Any] = Field(default_factory=dict)
 
 
+class RiskItem(BaseModel):
+    id: str
+    category: str
+    title: str
+    evidence: str
+    sourceType: str
+    severity: Literal["high_attention", "medium_attention", "general_attention"]
+    status: str
+    dataStatus: dict[str, Any] = Field(default_factory=dict)
+    needsFollowUp: list[str] = Field(default_factory=list)
+
+
+class RiskWatchItem(BaseModel):
+    id: str
+    title: str
+    reason: str
+    relatedData: str
+    followUpSource: str
+
+
+class RiskOverview(BaseModel):
+    status: str
+    summary: str
+    riskItems: list[RiskItem] = Field(default_factory=list)
+    watchItems: list[RiskWatchItem] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    dataStatus: dict[str, Any] = Field(default_factory=dict)
+
+
 class ResearchReportResponse(BaseModel):
     symbol: str
     name: str
@@ -139,6 +168,7 @@ class ResearchReportResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     majorEvents: list[MajorEventItem] = Field(default_factory=list)
     financialExplanation: FinancialExplanation | None = None
+    riskOverview: RiskOverview | None = None
 
 
 class LlmReportDraft(BaseModel):

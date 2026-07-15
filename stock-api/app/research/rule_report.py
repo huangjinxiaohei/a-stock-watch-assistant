@@ -73,6 +73,7 @@ def build_rule_report(
         warnings=safe_warnings,
         majorEvents=facts.get("majorEvents") or [],
         financialExplanation=facts.get("financialExplanation"),
+        riskOverview=facts.get("riskOverview"),
     )
 
 
