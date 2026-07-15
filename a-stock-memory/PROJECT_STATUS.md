@@ -377,3 +377,28 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 - The single permitted online SH600519 report request returned HTTP 200 in 17.929 seconds with `rule_fallback/fallback`, `provider=openai_compatible`, `model=deepseek-v4-pro`, eight sections, major events, financial overview, risk overview and the fixed disclaimer.
 - The actual fallback reason was `CORE_QUOTE_MOCK at core.quote`. The core-data quality gate completed before any LLM request, so this one online request did not exercise the new LLM timeout branch.
 - The deployment result confirms a controlled online fallback and no response secret marker. Shared-deadline timeout behavior remains covered by deterministic local tests and requires a separately authorized online test with fresh core quote/kline data.
+
+## V2.1.4 Rule and AI Generation Modes
+
+### Product behavior
+
+- The default report request now uses `generationMode=rule`; old requests that omit the field keep this default.
+- Rule mode does not construct or call the LLM client. It returns the complete rule report with `source=rule`, `status=success`, `provider=not_requested`, `model=null`, and `fallbackReason=GENERATION_MODE_RULE`.
+- A user must explicitly request AI enhancement after a successful rule report. The UI preserves the rule report during the AI request, displays elapsed time and cost notice, and permits only one AI request at a time.
+- AI enhancement failures, timeouts, quality-gate blocks, and compliance fallbacks keep the current rule report visible and surface only a non-sensitive reason.
+- Stopping the browser wait does not promise that a server-side model call or model cost has stopped.
+
+### Backend behavior and budget
+
+- Added the optional backward-compatible request field `generationMode: rule | ai`.
+- AI mode uses one bounded request path: the total backend budget is at most 110 seconds, and the LLM receives only the remaining budget after fact aggregation. AI-mode calls disable automatic retries.
+- LLM disabled in AI mode returns `rule_fallback/fallback/disabled/model=null`; a core-data gate block returns `rule_fallback/fallback/not_requested/model=null` without calling the LLM.
+- AI success and LLM failure fallback retain the configured server provider and model only when the client was eligible to be called. Existing quality gates, eight sections, major events, financial overview, risk overview, disclaimer, and compliance fallback are unchanged.
+
+### Validation and deployment state
+
+- Backend compile and 11 unit tests passed, including default rule mode, disabled AI mode, core-data block without LLM invocation, single budgeted AI call, timeout fallback, and success fallback paths.
+- Frontend typecheck and production build passed; the existing Charts/ECharts chunk-size warning remains.
+- Local browser checks passed for rule-first reporting, the manual AI action, disabled-AI fallback preserving the rule report, and a 390px viewport with no horizontal overflow or Console errors.
+- Commits awaiting push: `066026f` (`feat: add manual AI report generation mode`) and `68c2456` (`feat: add manual AI report enhancement flow`).
+- Render LLM configuration was not changed by this implementation. Deployment and at most one online AI-mode request remain pending.

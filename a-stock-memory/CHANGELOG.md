@@ -247,3 +247,31 @@ These commits have not been pushed or deployed.
 - Pushed `5f121f2` and `74ed831` to `main`; the public health endpoint returned HTTP 200 after the deployment wait.
 - The single online SH600519 request returned a controlled `CORE_QUOTE_MOCK` fallback in 17.929 seconds with the complete report structure and no response secret marker.
 - Because the core-data gate returned before LLM invocation, this request did not independently exercise the new LLM timeout branch.
+
+## Unreleased - 2026-07-16 - Rule and AI Generation Modes
+
+### Added
+
+- Added optional backward-compatible `generationMode: rule | ai` report requests, defaulting to rule mode.
+- Added an explicit manual AI enhancement action after a successful rule report, with elapsed time, cost notice, request de-duplication, and a 120-second browser wait budget.
+- Added an AI-mode total backend budget of at most 110 seconds, with the LLM limited to the remaining time and no automatic retries.
+
+### Changed
+
+- Rule mode no longer initializes or invokes the LLM client; it returns `rule/success/not_requested/model=null` with `GENERATION_MODE_RULE`.
+- AI disabled and core-data quality-gate outcomes return controlled rule fallbacks without unnecessary model calls.
+- AI errors, timeouts, and compliance fallbacks preserve the previously displayed rule report rather than replacing it with a local pseudo-AI result.
+
+### Validation
+
+- Backend compile and 11 unit tests passed.
+- Frontend typecheck and production build passed; the existing Charts/ECharts chunk-size warning remains.
+- Local desktop and 390px browser checks passed for the rule-first flow and disabled-AI fallback preservation.
+- No credential, provider configuration, deployment setting, or new upstream request was added.
+
+### Commits
+
+- `066026f` - `feat: add manual AI report generation mode`
+- `68c2456` - `feat: add manual AI report enhancement flow`
+
+These commits have not yet been pushed or deployed.
