@@ -140,7 +140,7 @@ export function HomePage({ watchSymbols, onAddWatch, onRemoveWatch, onSelectStoc
 
       <section className="research-hero-grid">
         <ResearchLauncher loading={research.loading} onGenerate={research.generate} />
-        <ResearchReportPanel report={research.report} loading={research.loading} error={research.error} steps={research.steps} currentStep={research.currentStep} />
+        <ResearchReportPanel report={research.report} loading={research.loading} error={research.error} steps={research.steps} currentStep={research.currentStep} aiLoading={research.aiLoading} aiElapsedSeconds={research.aiElapsedSeconds} aiError={research.aiError} onGenerateAi={research.generateAi} onStopAiWait={research.stopAiWait} />
       </section>
 
       {overview ? (

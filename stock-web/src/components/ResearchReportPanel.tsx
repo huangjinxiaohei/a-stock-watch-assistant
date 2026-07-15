@@ -10,6 +10,11 @@ interface ResearchReportPanelProps {
   error: string;
   steps: string[];
   currentStep: number;
+  aiLoading: boolean;
+  aiElapsedSeconds: number;
+  aiError: string;
+  onGenerateAi: () => void;
+  onStopAiWait: () => void;
 }
 
 type BannerTone = "good" | "warn" | "neutral";
@@ -36,7 +41,7 @@ interface OptionalDataView {
   affectedLabels: string[];
 }
 
-export function ResearchReportPanel({ report, loading, error, steps, currentStep }: ResearchReportPanelProps) {
+export function ResearchReportPanel({ report, loading, error, steps, currentStep, aiLoading, aiElapsedSeconds, aiError, onGenerateAi, onStopAiWait }: ResearchReportPanelProps) {
   const coreDataView = report ? getCoreDataView(report) : null;
   const optionalDataView = report ? getOptionalDataView(report) : null;
   const sourceView = report && coreDataView && optionalDataView ? getReportSourceView(report, coreDataView, optionalDataView) : null;
@@ -47,7 +52,7 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
       <div className="panel-header compact-header">
         <div>
           <h2>结构化研究报告</h2>
-          <p className="section-subtitle">优先使用后端AI增强报告；不可用时自动保留规则整理稿。</p>
+          <p className="section-subtitle">默认生成规则整理稿；只在主动请求时生成 AI 增强报告。</p>
         </div>
         <Sparkles size={18} />
       </div>
@@ -100,6 +105,24 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
               <strong>{sourceView?.label || "规则整理稿"}</strong>
             </div>
           </div>
+
+          {report.reportStatus.source === "rule" && report.reportStatus.status === "success" ? (
+            <section className="research-ai-action" aria-label="AI增强报告">
+              <div>
+                <h3>AI增强报告</h3>
+                <p>AI 生成可能需要 1-2 分钟，并会产生模型调用费用。</p>
+              </div>
+              {aiLoading ? (
+                <div className="research-ai-progress">
+                  <span>正在生成 AI 增强报告，已等待 {aiElapsedSeconds} 秒。</span>
+                  <button className="secondary-button" type="button" onClick={onStopAiWait}>停止等待</button>
+                </div>
+              ) : (
+                <button className="primary-button research-ai-button" type="button" onClick={onGenerateAi}>生成 AI 增强报告</button>
+              )}
+              {aiError ? <p className="research-ai-error">{aiError}</p> : null}
+            </section>
+          ) : null}
 
           <MajorEventsOverview majorEvents={report.majorEvents} />
 

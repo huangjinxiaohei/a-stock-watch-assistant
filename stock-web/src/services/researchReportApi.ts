@@ -3,16 +3,28 @@ import { RESEARCH_DISCLAIMER, type FinancialExplanation, type FinancialMetric, t
 const apiBaseUrl = import.meta.env.VITE_STOCK_API_BASE_URL ?? "";
 const requestTimeoutMs = Number(import.meta.env.VITE_STOCK_REQUEST_TIMEOUT_MS ?? 60000);
 
+export type ReportGenerationMode = "rule" | "ai";
+
 interface ResearchReportApiRequest {
   symbol?: string;
   keyword?: string;
   language: "zh-CN";
   depth: "standard";
+  generationMode?: ReportGenerationMode;
 }
 
-export async function requestBackendResearchReport(requestBody: ResearchReportApiRequest): Promise<ResearchReport> {
+interface ResearchReportRequestOptions {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+export async function requestBackendResearchReport(requestBody: ResearchReportApiRequest, options: ResearchReportRequestOptions = {}): Promise<ResearchReport> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+  const timeoutMs = options.timeoutMs ?? requestTimeoutMs;
+  const abortFromCaller = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  options.signal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(buildResearchReportUrl(apiBaseUrl), {
@@ -37,6 +49,7 @@ export async function requestBackendResearchReport(requestBody: ResearchReportAp
     throw error;
   } finally {
     window.clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", abortFromCaller);
   }
 }
 
