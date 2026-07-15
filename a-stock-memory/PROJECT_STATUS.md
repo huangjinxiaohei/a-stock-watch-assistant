@@ -341,3 +341,31 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 
 - 在另行评审稳定、合规的数据基础后，再考虑正式公告、估值、行业外部因素、多期财务、报告历史、用户系统与 AI 问答。
 - 不把上述 Roadmap 事项写成已完成功能。
+
+
+## LLM Timeout Budget Alignment - 2026-07-16
+
+### Root cause and boundary
+
+- A direct backend LLM request completed successfully after 114.14 seconds (`latencyMs=112700`), while the frontend request budget remains approximately 60 seconds. The browser therefore cancelled the request and used its local fallback before the backend response arrived.
+- This is a timeout-budget mismatch, not a Key, compliance, core-data quality-gate or Render free-tier failure.
+- The frontend budget remains unchanged. The code default for LLM reporting remains disabled and no API key, deployment setting or frontend provider connection was changed by this fix.
+
+### Backend implementation
+
+- LLM calls now use a shared, capped 48-second total deadline across all retry attempts. `LLM_TIMEOUT_SECONDS` values above 48 seconds are capped safely.
+- HTTP phase budgets are explicit: connect is capped at 5 seconds and read/write budgets are bounded by the remaining shared deadline. Retry attempts cannot add a second full timeout window.
+- A deadline exhaustion raises the non-sensitive reason `LLM timeout after 48 seconds`. The existing service path converts it to `rule_fallback/fallback`, retaining the configured provider and model and returning the complete rule report with major events, financial overview, risk overview, eight sections and the fixed disclaimer.
+- The synchronous HTTP client is closed with its context manager; this path creates no background worker or executor thread.
+
+### Local validation
+
+- Backend `compileall` and the full current unit suite passed.
+- Tests cover disabled LLM (`rule/success/disabled/model=null`), a successful in-budget LLM response, shared-deadline exhaustion without an extra retry, timeout-to-`rule_fallback`, configured model retention for LLM fallback, eight sections, major events, financial overview, risk overview and the fixed disclaimer.
+- Changed Python files are UTF-8 without BOM and LF-only. `git diff --check` and the changed-file secret-pattern scan passed.
+
+### Remaining deployment verification
+
+1. Commit the code and this project-memory update, then push to `main`.
+2. After Render deploys, run one online report request only. A model response within the budget may return `llm/success`; an over-budget call must return backend-controlled `rule_fallback/fallback` before the frontend timeout.
+3. Keep Render LLM configuration unchanged during this code rollout unless a separately authorized configuration action is required.

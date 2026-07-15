@@ -218,3 +218,25 @@ These commits have not been pushed or deployed.
 - Financial indicators may return empty upstream records and money-flow requests may fail; both remain explicit limitations.
 - LLM remains disabled on Render. No real credential, provider configuration, new upstream source or investment recommendation was added.
 - Feature development is frozen; formal announcements, valuation, industry factors, multi-period financial trends, user accounts, report history and AI Q&A remain Roadmap items.
+
+
+## Unreleased - 2026-07-16 - LLM Timeout Budget Alignment
+
+### Fixed
+
+- Capped the effective backend LLM request budget at 48 seconds so a slow LLM call cannot outlast the frontend's approximately 60-second report timeout.
+- Added one shared deadline across retry attempts, preventing retries from accumulating multiple full LLM timeout windows.
+- Added explicit connect and remaining read/write phase budgets for the OpenAI-compatible HTTP client.
+- Converted exhausted LLM time budgets into a non-sensitive `LLM timeout after 48 seconds` rule fallback with the configured provider/model and the complete rule report.
+
+### Validation
+
+- Backend compile and the current seven-test unit suite passed.
+- Covered disabled LLM, in-budget LLM success, deadline exhaustion, timeout fallback, configured-model retention, eight sections and the fixed disclaimer.
+- Confirmed the existing frontend remains at its approximately 60-second request budget and renders a backend `rule_fallback` response instead of invoking local fallback when the response arrives in time.
+- No real credentials, API headers, request bodies or LLM source text were added to code, logs or documentation.
+
+### Pending deployment verification
+
+- The implementation has not yet been pushed or deployed at the time of this changelog update.
+- One post-deployment online request will verify either in-budget `llm/success` or backend-controlled timeout fallback; Render LLM configuration is unchanged by this change.
