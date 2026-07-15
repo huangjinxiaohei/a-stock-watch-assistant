@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 import httpx
@@ -45,17 +46,25 @@ class LlmClient:
             "Content-Type": "application/json",
         }
 
+        deadline = time.monotonic() + settings.llm_timeout_seconds
         last_error: Exception | None = None
         for _ in range(max(1, settings.llm_max_retries + 1)):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise LlmClientError(_timeout_reason())
             try:
-                with httpx.Client(timeout=settings.llm_timeout_seconds) as client:
+                with httpx.Client(timeout=_request_timeout(remaining)) as client:
                     response = client.post(url, headers=headers, json=payload)
                 if response.status_code in {401, 403, 429} or response.status_code >= 500:
                     raise LlmClientError(f"LLM upstream status {response.status_code}")
                 response.raise_for_status()
                 content = _extract_message_content(response.json())
                 return _parse_json_object(content)
-            except (httpx.TimeoutException, httpx.RequestError) as error:
+            except httpx.TimeoutException as error:
+                last_error = error
+                if time.monotonic() >= deadline:
+                    raise LlmClientError(_timeout_reason()) from error
+            except httpx.RequestError as error:
                 last_error = error
             except (json.JSONDecodeError, KeyError, TypeError, ValueError, httpx.HTTPStatusError, LlmClientError) as error:
                 last_error = error
@@ -63,6 +72,8 @@ class LlmClient:
                     continue
                 break
 
+        if time.monotonic() >= deadline:
+            raise LlmClientError(_timeout_reason()) from last_error
         reason = str(last_error) if last_error else "LLM request failed"
         raise LlmClientError(_safe_reason(reason))
 
@@ -98,3 +109,17 @@ def _parse_json_object(content: str) -> dict[str, Any]:
 def _safe_reason(reason: str) -> str:
     redacted = reason.replace(settings.llm_api_key, "[redacted]") if settings.llm_api_key else reason
     return redacted[:240]
+
+
+def _request_timeout(remaining_seconds: float) -> httpx.Timeout:
+    connect_timeout = min(settings.llm_connect_timeout_seconds, remaining_seconds)
+    return httpx.Timeout(
+        connect=connect_timeout,
+        read=remaining_seconds,
+        write=remaining_seconds,
+        pool=connect_timeout,
+    )
+
+
+def _timeout_reason() -> str:
+    return f"LLM timeout after {int(settings.llm_timeout_seconds)} seconds"
