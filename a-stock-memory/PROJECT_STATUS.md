@@ -269,3 +269,34 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 3. 等待 Render 和 Netlify 部署，保持 Render LLM 关闭。
 4. 执行线上无 Key 验收，确认业绩变化概览安全空状态、重大事件模块、8 个章节和免责声明在线正常。
 5. 验收通过后正式完成 V2.1.2.
+
+## V2.1.3 Risk and Watch Overview
+
+### Scope and rules
+
+- Added the optional backward-compatible `riskOverview` response field without adding a ninth fixed report section.
+- Risk and watch items are derived only from existing server facts: `coreStatus`, `majorEvents`, `financialExplanation`, finance metrics, technical data, news and data-status fields.
+- Risk categories cover core-data quality, earnings and finance, major events or governance, technical-state observations, and information freshness or missing data.
+- Severity is limited to `high_attention`, `medium_attention`, and `general_attention`; it is not mapped to trading actions, position sizing, stop-loss, price direction or return expectations.
+- mock, fallback, stale and missing data produce limitations or follow-up items only and cannot become confirmed risks.
+- The server limits risk items and watch items to five each and does not pad empty results.
+- The frontend only renders server results and remains backward compatible when `riskOverview` is absent.
+- The browser title is now `AI投研助手`.
+- Major events, financial change overview, the original eight sections and the fixed disclaimer remain unchanged.
+
+### Local validation
+
+- Backend `compileall` passed.
+- Rule cases passed for available, partial and degraded core/financial data, including no confirmed risk from degraded data.
+- Disabled endpoint smoke test passed with HTTP 200, `source=rule`, `status=success`, `provider=disabled`, `model=null`, `riskOverview.status=partial`, eight sections and the fixed disclaimer.
+- HARD_BLOCK regression and legacy response compatibility passed.
+- Frontend `pnpm typecheck` and `pnpm build` passed; only the existing Charts/ECharts chunk-size warning remains.
+- No provider, network request, database, deployment configuration, environment variable or LLM prompt was changed.
+- No API key, authorization header, bearer token, frontend provider connection or tracked `stock-web/dist` output was found.
+
+### Deployment state and boundaries
+
+- The V2.1.3 code and documentation are not yet pushed or deployed at the time of this update.
+- Render LLM remains disabled.
+- Live browser acceptance must report the actual riskOverview state. Constructed rule cases do not count as live confirmation of every risk state.
+- This module is risk and follow-up information organization, not investment advice or a price forecast.

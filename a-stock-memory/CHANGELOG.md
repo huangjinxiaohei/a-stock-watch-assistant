@@ -155,3 +155,25 @@ These commits have not been pushed or deployed.
 
 - `c0fb47f` - `feat: add financial change overview to research reports`
 - `a890cbb` - `feat: show financial change overview in research reports`
+
+## Unreleased - 2026-07-15 - V2.1.3
+
+### Added
+
+- Added optional `riskOverview` response data for server-derived risk clues and follow-up observations.
+- Added bounded risk and watch item lists with core-data, financial, event/governance, technical-state and information-quality categories.
+- Added `RiskWatchOverview` while preserving major events, financial change overview, the original eight sections and the disclaimer.
+- Updated the browser title to `AI投研助手`.
+
+### Validation
+
+- Backend compile, rule, fallback, HARD_BLOCK and legacy-response compatibility checks passed.
+- Local no-Key HTTP smoke test passed with HTTP 200 and `rule/success/disabled/model=null`.
+- Frontend typecheck and production build passed; the existing Charts/ECharts chunk warning remains.
+- Degraded and missing data produce limitations or follow-up items rather than confirmed risks.
+- No new upstream request, provider connection, deployment setting, environment variable or sensitive credential was added.
+- Changes have not yet been pushed or deployed; Render LLM remains disabled.
+
+### Commits
+
+- Pending until validation is complete: backend risk overview, frontend risk overview and browser-title fix, and this documentation update.
