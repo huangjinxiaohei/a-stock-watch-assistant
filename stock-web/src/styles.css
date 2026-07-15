@@ -2211,3 +2211,203 @@ html[data-theme="dark"] .research-data-status-item.data-state-missing b {
     width: fit-content;
   }
 }
+
+.risk-watch-overview {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e4e9f0;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.risk-watch-overview.status-warn {
+  border-color: #f2d08b;
+  background: #fffaf0;
+}
+
+.risk-watch-header,
+.risk-watch-meta,
+.risk-watch-item-header,
+.risk-watch-item-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.risk-watch-header,
+.risk-watch-meta,
+.risk-watch-item-header {
+  justify-content: space-between;
+}
+
+.risk-watch-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.risk-watch-header p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.risk-watch-header > span,
+.risk-watch-chip {
+  flex: 0 0 auto;
+  border: 1px solid #d8e0e7;
+  border-radius: 999px;
+  color: #475467;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.risk-watch-empty,
+.risk-watch-summary,
+.risk-watch-limitations,
+.risk-watch-item {
+  border: 1px dashed #d8e0e7;
+  border-radius: 8px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 10px;
+}
+
+.risk-watch-summary {
+  border-style: solid;
+  color: #344054;
+}
+
+.risk-watch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.risk-watch-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid #e4e9f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.risk-watch-item-header {
+  align-items: flex-start;
+}
+
+.risk-watch-item-header h4 {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.risk-watch-item-meta {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.risk-watch-card p,
+.risk-watch-item span,
+.risk-watch-item li,
+.risk-watch-limitations li {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.risk-watch-card p {
+  margin: 0;
+  color: #344054;
+}
+
+.risk-watch-card ul,
+.risk-watch-limitations ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.risk-watch-section-label {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.risk-watch-chip.status-confirmed {
+  background: #edf7f1;
+  border-color: #badfcb;
+  color: #137a4a;
+}
+
+.risk-watch-chip.status-needs_follow_up {
+  background: #fff4df;
+  border-color: #f2d08b;
+  color: #9a6200;
+}
+
+.risk-watch-chip.severity-high_attention {
+  background: #fdeceb;
+  border-color: #f3b5ae;
+  color: #b42318;
+}
+
+.risk-watch-chip.severity-medium_attention {
+  background: #fff4df;
+  border-color: #f2d08b;
+  color: #9a6200;
+}
+
+.risk-watch-chip.severity-general_attention {
+  background: #eef4ff;
+  border-color: #c8d9f4;
+  color: #2f5f9f;
+}
+
+html[data-theme="dark"] .risk-watch-overview,
+html[data-theme="dark"] .risk-watch-card,
+html[data-theme="dark"] .risk-watch-summary,
+html[data-theme="dark"] .risk-watch-item {
+  background: #101820;
+  border-color: #273444;
+  color: #dbe4ee;
+}
+
+html[data-theme="dark"] .risk-watch-overview.status-warn {
+  background: #241b0c;
+  border-color: #6d4b14;
+}
+
+html[data-theme="dark"] .risk-watch-header p,
+html[data-theme="dark"] .risk-watch-empty,
+html[data-theme="dark"] .risk-watch-card p,
+html[data-theme="dark"] .risk-watch-item span,
+html[data-theme="dark"] .risk-watch-item li,
+html[data-theme="dark"] .risk-watch-limitations li {
+  color: #8ea0b5;
+}
+
+@media (max-width: 720px) {
+  .risk-watch-header,
+  .risk-watch-item-header {
+    flex-direction: column;
+  }
+
+  .risk-watch-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .risk-watch-header > span {
+    width: fit-content;
+  }
+}

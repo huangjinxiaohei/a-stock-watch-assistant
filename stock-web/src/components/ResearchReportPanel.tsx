@@ -2,6 +2,7 @@
 import type { ReportStatus, ResearchDataState, ResearchDataStatusItem, ResearchReport } from "../analysis/researchReport";
 import { FinancialChangeOverview } from "./FinancialChangeOverview";
 import { MajorEventsOverview } from "./MajorEventsOverview";
+import { RiskWatchOverview } from "./RiskWatchOverview";
 
 interface ResearchReportPanelProps {
   report: ResearchReport | null;
@@ -103,6 +104,8 @@ export function ResearchReportPanel({ report, loading, error, steps, currentStep
           <MajorEventsOverview majorEvents={report.majorEvents} />
 
           <FinancialChangeOverview financialExplanation={report.financialExplanation} />
+
+          <RiskWatchOverview riskOverview={report.riskOverview} />
 
           <section className="research-data-status" aria-label="报告数据状态">
             <div className="research-data-status-header">

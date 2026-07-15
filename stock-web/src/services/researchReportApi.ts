@@ -1,4 +1,4 @@
-import { RESEARCH_DISCLAIMER, type FinancialExplanation, type FinancialMetric, type MajorEventItem, type ReportSource, type ReportStatusValue, type ResearchDataState, type ResearchReport } from "../analysis/researchReport";
+import { RESEARCH_DISCLAIMER, type FinancialExplanation, type FinancialMetric, type MajorEventItem, type ReportSource, type ReportStatusValue, type ResearchDataState, type ResearchReport, type RiskItem, type RiskOverview, type RiskWatchItem } from "../analysis/researchReport";
 
 const apiBaseUrl = import.meta.env.VITE_STOCK_API_BASE_URL ?? "";
 const requestTimeoutMs = Number(import.meta.env.VITE_STOCK_REQUEST_TIMEOUT_MS ?? 60000);
@@ -80,7 +80,8 @@ function parseBackendResearchReport(value: unknown): ResearchReport {
     disclaimer,
     warnings: toStringArray(value.warnings),
     majorEvents: parseMajorEvents(value.majorEvents),
-    financialExplanation: parseFinancialExplanation(value.financialExplanation)
+    financialExplanation: parseFinancialExplanation(value.financialExplanation),
+    riskOverview: parseRiskOverview(value.riskOverview)
   };
 }
 
@@ -133,6 +134,54 @@ function parseFinancialMetric(value: unknown): FinancialMetric {
     value: typeof value.value === "number" && Number.isFinite(value.value) ? value.value : null,
     unit: toSafeString(value.unit),
     available: value.available === true
+  };
+}
+
+function parseRiskOverview(value: unknown): RiskOverview | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) return missingRiskOverview();
+  return {
+    status: typeof value.status === "string" && value.status ? value.status : "missing",
+    summary: toSafeString(value.summary),
+    riskItems: Array.isArray(value.riskItems) ? value.riskItems.filter(isRecord).map(parseRiskItem) : [],
+    watchItems: Array.isArray(value.watchItems) ? value.watchItems.filter(isRecord).map(parseRiskWatchItem) : [],
+    limitations: toStringArray(value.limitations),
+    dataStatus: isRecord(value.dataStatus) ? value.dataStatus : undefined
+  };
+}
+
+function parseRiskItem(value: Record<string, unknown>): RiskItem {
+  return {
+    id: toSafeString(value.id),
+    category: toSafeString(value.category),
+    title: toSafeString(value.title),
+    evidence: toSafeString(value.evidence),
+    sourceType: toSafeString(value.sourceType),
+    severity: toSafeString(value.severity),
+    status: toSafeString(value.status),
+    dataStatus: isRecord(value.dataStatus) ? value.dataStatus : undefined,
+    needsFollowUp: toStringArray(value.needsFollowUp)
+  };
+}
+
+function parseRiskWatchItem(value: Record<string, unknown>): RiskWatchItem {
+  return {
+    id: toSafeString(value.id),
+    title: toSafeString(value.title),
+    reason: toSafeString(value.reason),
+    relatedData: toSafeString(value.relatedData),
+    followUpSource: toSafeString(value.followUpSource)
+  };
+}
+
+function missingRiskOverview(): RiskOverview {
+  return {
+    status: "missing",
+    summary: "",
+    riskItems: [],
+    watchItems: [],
+    limitations: [],
+    dataStatus: undefined
   };
 }
 

@@ -71,6 +71,35 @@ export interface FinancialExplanation {
   dataStatus?: Record<string, unknown>;
 }
 
+export interface RiskItem {
+  id: string;
+  category: string;
+  title: string;
+  evidence: string;
+  sourceType: string;
+  severity: "high_attention" | "medium_attention" | "general_attention" | string;
+  status: string;
+  dataStatus?: Record<string, unknown>;
+  needsFollowUp: string[];
+}
+
+export interface RiskWatchItem {
+  id: string;
+  title: string;
+  reason: string;
+  relatedData: string;
+  followUpSource: string;
+}
+
+export interface RiskOverview {
+  status: "available" | "partial" | "missing" | string;
+  summary: string;
+  riskItems: RiskItem[];
+  watchItems: RiskWatchItem[];
+  limitations: string[];
+  dataStatus?: Record<string, unknown>;
+}
+
 export interface ResearchReport {
   symbol: string;
   name: string;
@@ -84,6 +113,7 @@ export interface ResearchReport {
   warnings?: string[];
   majorEvents?: MajorEventItem[];
   financialExplanation?: FinancialExplanation | null;
+  riskOverview?: RiskOverview | null;
 }
 
 interface GenerateResearchReportInput {
