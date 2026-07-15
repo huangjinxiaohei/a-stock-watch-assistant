@@ -369,3 +369,11 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 1. Commit the code and this project-memory update, then push to `main`.
 2. After Render deploys, run one online report request only. A model response within the budget may return `llm/success`; an over-budget call must return backend-controlled `rule_fallback/fallback` before the frontend timeout.
 3. Keep Render LLM configuration unchanged during this code rollout unless a separately authorized configuration action is required.
+
+
+### LLM timeout deployment result - 2026-07-16
+
+- Commits `5f121f2` and `74ed831` were pushed to `main`; the public Render health endpoint returned HTTP 200 after the deployment wait.
+- The single permitted online SH600519 report request returned HTTP 200 in 17.929 seconds with `rule_fallback/fallback`, `provider=openai_compatible`, `model=deepseek-v4-pro`, eight sections, major events, financial overview, risk overview and the fixed disclaimer.
+- The actual fallback reason was `CORE_QUOTE_MOCK at core.quote`. The core-data quality gate completed before any LLM request, so this one online request did not exercise the new LLM timeout branch.
+- The deployment result confirms a controlled online fallback and no response secret marker. Shared-deadline timeout behavior remains covered by deterministic local tests and requires a separately authorized online test with fresh core quote/kline data.

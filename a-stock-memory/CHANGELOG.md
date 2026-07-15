@@ -240,3 +240,10 @@ These commits have not been pushed or deployed.
 
 - The implementation has not yet been pushed or deployed at the time of this changelog update.
 - One post-deployment online request will verify either in-budget `llm/success` or backend-controlled timeout fallback; Render LLM configuration is unchanged by this change.
+
+
+### Deployment note - 2026-07-16
+
+- Pushed `5f121f2` and `74ed831` to `main`; the public health endpoint returned HTTP 200 after the deployment wait.
+- The single online SH600519 request returned a controlled `CORE_QUOTE_MOCK` fallback in 17.929 seconds with the complete report structure and no response secret marker.
+- Because the core-data gate returned before LLM invocation, this request did not independently exercise the new LLM timeout branch.
