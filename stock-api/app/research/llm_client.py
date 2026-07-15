@@ -23,7 +23,13 @@ class LlmClient:
     def is_configured(self) -> bool:
         return bool(settings.llm_api_key and settings.llm_base_url and settings.llm_model)
 
-    def generate_report(self, fact_package: dict[str, Any]) -> dict[str, Any]:
+    def generate_report(
+        self,
+        fact_package: dict[str, Any],
+        *,
+        timeout_seconds: float | None = None,
+        allow_retries: bool = True,
+    ) -> dict[str, Any]:
         if not settings.ai_report_enable_llm:
             raise LlmClientError("AI_REPORT_ENABLE_LLM=false")
         if not self.is_configured:
@@ -46,12 +52,14 @@ class LlmClient:
             "Content-Type": "application/json",
         }
 
-        deadline = time.monotonic() + settings.llm_timeout_seconds
+        budget_seconds = _effective_timeout_seconds(timeout_seconds)
+        deadline = time.monotonic() + budget_seconds
         last_error: Exception | None = None
-        for _ in range(max(1, settings.llm_max_retries + 1)):
+        attempts = max(1, settings.llm_max_retries + 1) if allow_retries else 1
+        for _ in range(attempts):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise LlmClientError(_timeout_reason())
+                raise LlmClientError(_timeout_reason(budget_seconds))
             try:
                 with httpx.Client(timeout=_request_timeout(remaining)) as client:
                     response = client.post(url, headers=headers, json=payload)
@@ -63,7 +71,7 @@ class LlmClient:
             except httpx.TimeoutException as error:
                 last_error = error
                 if time.monotonic() >= deadline:
-                    raise LlmClientError(_timeout_reason()) from error
+                    raise LlmClientError(_timeout_reason(budget_seconds)) from error
             except httpx.RequestError as error:
                 last_error = error
             except (json.JSONDecodeError, KeyError, TypeError, ValueError, httpx.HTTPStatusError, LlmClientError) as error:
@@ -73,7 +81,7 @@ class LlmClient:
                 break
 
         if time.monotonic() >= deadline:
-            raise LlmClientError(_timeout_reason()) from last_error
+            raise LlmClientError(_timeout_reason(budget_seconds)) from last_error
         reason = str(last_error) if last_error else "LLM request failed"
         raise LlmClientError(_safe_reason(reason))
 
@@ -121,5 +129,15 @@ def _request_timeout(remaining_seconds: float) -> httpx.Timeout:
     )
 
 
-def _timeout_reason() -> str:
-    return f"LLM timeout after {int(settings.llm_timeout_seconds)} seconds"
+def _effective_timeout_seconds(timeout_seconds: float | None) -> float:
+    requested = settings.llm_timeout_seconds if timeout_seconds is None else timeout_seconds
+    try:
+        parsed = float(requested)
+    except (TypeError, ValueError):
+        parsed = settings.llm_timeout_seconds
+    maximum = float(getattr(settings, "ai_report_ai_timeout_seconds", 110.0))
+    return min(max(parsed, 0.1), maximum)
+
+
+def _timeout_reason(timeout_seconds: float) -> str:
+    return f"LLM timeout after {int(timeout_seconds)} seconds"

@@ -41,21 +41,39 @@ class ResearchReportService:
         self.mock_provider = MockProvider()
         self.provider = self.mock_provider if settings.provider == "mock" else AkShareProvider()
         self.cache = PersistentCache(Path(__file__).resolve().parents[2] / "data" / "stock_cache.sqlite3")
-        self.llm_client = LlmClient()
+        self.llm_client: LlmClient | None = None
 
     def generate(self, request: ResearchReportRequest) -> ResearchReportResponse:
         started_at = time.perf_counter()
         generated_at = _now_shanghai()
-        llm_ready = bool(settings.ai_report_enable_llm and self.llm_client.is_configured)
-        facts = self._build_fact_package(request, include_optional=llm_ready)
 
-        if not settings.ai_report_enable_llm:
+        if request.generationMode == "rule":
+            facts = self._build_fact_package(request, include_optional=False)
             rule_started = time.perf_counter()
             response = build_rule_report(
                 facts,
                 ReportStatus(
                     source="rule",
                     status="success",
+                    provider="not_requested",
+                    model=None,
+                    fallbackReason="GENERATION_MODE_RULE",
+                ),
+                generated_at,
+            )
+            _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
+            return self._finalize(response, started_at)
+
+        ai_deadline = started_at + float(getattr(settings, "ai_report_ai_timeout_seconds", 110.0))
+        facts = self._build_fact_package(request, include_optional=settings.ai_report_enable_llm)
+
+        if not settings.ai_report_enable_llm:
+            rule_started = time.perf_counter()
+            response = build_rule_report(
+                facts,
+                ReportStatus(
+                    source="rule_fallback",
+                    status="fallback",
                     provider="disabled",
                     model=None,
                     fallbackReason="AI_REPORT_ENABLE_LLM=false",
@@ -65,7 +83,25 @@ class ResearchReportService:
             _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
             return self._finalize(response, started_at)
 
-        if not self.llm_client.is_configured:
+        core_issue = _core_data_quality_issue(facts)
+        if core_issue is not None:
+            rule_started = time.perf_counter()
+            response = build_rule_report(
+                facts,
+                ReportStatus(
+                    source="rule_fallback",
+                    status="fallback",
+                    provider="not_requested",
+                    model=None,
+                    fallbackReason=core_issue,
+                ),
+                generated_at,
+            )
+            _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
+            return self._finalize(response, started_at)
+
+        llm_client = self._get_llm_client()
+        if not llm_client.is_configured:
             rule_started = time.perf_counter()
             response = build_rule_report(
                 facts,
@@ -81,8 +117,8 @@ class ResearchReportService:
             _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
             return self._finalize(response, started_at)
 
-        core_issue = _core_data_quality_issue(facts)
-        if core_issue is not None:
+        llm_budget = ai_deadline - time.perf_counter()
+        if llm_budget <= 0:
             rule_started = time.perf_counter()
             response = build_rule_report(
                 facts,
@@ -91,16 +127,17 @@ class ResearchReportService:
                     status="fallback",
                     provider=settings.llm_provider or "openai_compatible",
                     model=settings.llm_model or None,
-                    fallbackReason=core_issue,
+                    fallbackReason="AI report timeout before LLM request",
                 ),
                 generated_at,
+                warnings=["\u0041\u0049 \u589e\u5f3a\u62a5\u544a\u8d85\u65f6\uff0c\u5df2\u8fd4\u56de\u89c4\u5219\u7248\u7814\u7a76\u62a5\u544a\u3002"],
             )
             _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
             return self._finalize(response, started_at)
 
         llm_started = time.perf_counter()
         try:
-            llm_payload = self.llm_client.generate_report(facts)
+            llm_payload = llm_client.generate_report(facts, timeout_seconds=llm_budget, allow_retries=False)
             draft = LlmReportDraft.model_validate(llm_payload)
             assert_llm_text_compliant(draft.sections, draft.warnings)
             _log_stage("llm", facts.get("symbol"), llm_started, "success")
@@ -138,10 +175,15 @@ class ResearchReportService:
                     fallbackReason=sanitize_rule_text(str(error)[:240]),
                 ),
                 generated_at,
-                warnings=["LLM 增强报告暂不可用，已返回规则版研究报告。"],
+                warnings=["\u004c\u004c\u004d \u589e\u5f3a\u62a5\u544a\u6682\u4e0d\u53ef\u7528\uff0c\u5df2\u8fd4\u56de\u89c4\u5219\u7248\u7814\u7a76\u62a5\u544a\u3002"],
             )
             _log_stage("rule_report", facts.get("symbol"), rule_started, "success")
             return self._finalize(response, started_at)
+
+    def _get_llm_client(self) -> LlmClient:
+        if self.llm_client is None:
+            self.llm_client = LlmClient()
+        return self.llm_client
 
     def _build_fact_package(self, request: ResearchReportRequest, include_optional: bool = True) -> dict[str, Any]:
         aggregate_started = time.perf_counter()

@@ -60,14 +60,14 @@ class _SuccessClient:
 class _TimedOutLlm:
     is_configured = True
 
-    def generate_report(self, facts: dict[str, object]) -> dict[str, object]:
+    def generate_report(self, facts: dict[str, object], **kwargs: object) -> dict[str, object]:
         raise LlmClientError("LLM timeout after 48 seconds")
 
 
 class _SuccessfulLlm:
     is_configured = True
 
-    def generate_report(self, facts: dict[str, object]) -> dict[str, object]:
+    def generate_report(self, facts: dict[str, object], **kwargs: object) -> dict[str, object]:
         return {
             "sections": [
                 {"title": title, "points": [DISCLAIMER] if title == "\u514d\u8d23\u58f0\u660e" else ["Public data summary."]}
@@ -189,10 +189,10 @@ class LlmTimeoutBudgetTests(unittest.TestCase):
         service = ResearchReportService()
         service.llm_client = _TimedOutLlm()
         service._build_fact_package = MagicMock(return_value=_facts())
-        runtime_settings = SimpleNamespace(ai_report_enable_llm=True, llm_model="deepseek-v4-pro", llm_provider="openai_compatible")
+        runtime_settings = SimpleNamespace(ai_report_enable_llm=True, llm_model="deepseek-v4-pro", llm_provider="openai_compatible", ai_report_ai_timeout_seconds=110.0)
 
         with patch("app.research.service.settings", runtime_settings):
-            response = service.generate(ResearchReportRequest(symbol="SH600519"))
+            response = service.generate(ResearchReportRequest(symbol="SH600519", generationMode="ai"))
 
         self.assertEqual(response.reportStatus.source, "rule_fallback")
         self.assertEqual(response.reportStatus.status, "fallback")
@@ -214,10 +214,10 @@ class LlmTimeoutBudgetTests(unittest.TestCase):
         service = ResearchReportService()
         service.llm_client = _SuccessfulLlm()
         service._build_fact_package = MagicMock(return_value=_facts())
-        runtime_settings = SimpleNamespace(ai_report_enable_llm=True, llm_model="deepseek-v4-pro", llm_provider="openai_compatible")
+        runtime_settings = SimpleNamespace(ai_report_enable_llm=True, llm_model="deepseek-v4-pro", llm_provider="openai_compatible", ai_report_ai_timeout_seconds=110.0)
 
         with patch("app.research.service.settings", runtime_settings):
-            response = service.generate(ResearchReportRequest(symbol="SH600519"))
+            response = service.generate(ResearchReportRequest(symbol="SH600519", generationMode="ai"))
 
         self.assertEqual(response.reportStatus.source, "llm")
         self.assertEqual(response.reportStatus.status, "success")
@@ -230,11 +230,11 @@ class LlmTimeoutBudgetTests(unittest.TestCase):
         service = ResearchReportService()
         service._build_fact_package = MagicMock(return_value=_facts())
 
-        with patch("app.research.service.settings", SimpleNamespace(ai_report_enable_llm=False)):
-            response = service.generate(ResearchReportRequest(symbol="SH600519"))
+        with patch("app.research.service.settings", SimpleNamespace(ai_report_enable_llm=False, ai_report_ai_timeout_seconds=110.0)):
+            response = service.generate(ResearchReportRequest(symbol="SH600519", generationMode="ai"))
 
-        self.assertEqual(response.reportStatus.source, "rule")
-        self.assertEqual(response.reportStatus.status, "success")
+        self.assertEqual(response.reportStatus.source, "rule_fallback")
+        self.assertEqual(response.reportStatus.status, "fallback")
         self.assertEqual(response.reportStatus.provider, "disabled")
         self.assertIsNone(response.reportStatus.model)
         self.assertEqual(len(response.sections), 8)

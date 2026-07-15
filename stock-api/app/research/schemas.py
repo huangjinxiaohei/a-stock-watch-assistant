@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Literal
 
@@ -25,6 +25,7 @@ class ResearchReportRequest(BaseModel):
     language: str = "zh-CN"
     depth: str = "standard"
     forceRefresh: bool = False
+    generationMode: Literal["rule", "ai"] = "rule"
 
     @model_validator(mode="after")
     def require_lookup_key(self) -> "ResearchReportRequest":

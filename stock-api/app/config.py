@@ -57,6 +57,7 @@ class Settings:
     llm_timeout_seconds: float = _env_float("LLM_TIMEOUT_SECONDS", 48.0, minimum=1.0, maximum=48.0)
     llm_connect_timeout_seconds: float = _env_float("LLM_CONNECT_TIMEOUT_SECONDS", 5.0, minimum=0.1, maximum=10.0)
     llm_max_retries: int = _env_int("LLM_MAX_RETRIES", 1, minimum=0)
+    ai_report_ai_timeout_seconds: float = _env_float("AI_REPORT_AI_TIMEOUT_SECONDS", 110.0, minimum=1.0, maximum=110.0)
     llm_temperature: float = _env_float("LLM_TEMPERATURE", 0.2, minimum=0.0)
     ai_report_max_news_items: int = _env_int("AI_REPORT_MAX_NEWS_ITEMS", 8, minimum=1)
     ai_report_max_kline_items: int = _env_int("AI_REPORT_MAX_KLINE_ITEMS", 60, minimum=1)
