@@ -214,3 +214,58 @@ Commit: `5e9a259` - `fix: prevent homepage crash on missing market stats`.
 3. Wait for Render and Netlify deployment, then run online no-Key regression.
 4. Verify the major event clues module and homepage crash fix online.
 5. Keep Render LLM disabled until online fallback and data-quality checks are complete.
+
+## V2.1.2 业绩变化概览
+
+### 产品边界
+
+- 当前模块名称为“业绩变化概览”，不是完整的“业绩原因解释”。
+- 当前只基于最新一期财务快照。
+- 当前能够展示：营收增速、净利润增速、毛利率、ROE、资产负债率、EPS、营收与净利润同步或分化关系、数据来源、数据日期、数据状态、数据限制和后续复核事项。
+- 当前不支持：环比、多期趋势、扣非净利润、经营现金流、费用率、一次性损益和确定性经营原因归因。
+- `asOfDate` 仅展示为“数据日期”，不解释为公告日期或报告期。
+
+### 后端实现
+
+- 新增可选顶层字段 `financialExplanation`，属于向后兼容的加法扩展。
+- 新增 `stock-api/app/research/financial_facts.py`，对营收与净利润进行同向增长、同向下降或表现分化判断。
+- 对缺失值、NaN、Infinity、异常日期、mock、fallback、stale 和 `available=false` 做防御处理。
+- LLM 只能复述服务端已确认事实，不得修改 `changePattern` 或 `dataStatus`，不得编造业绩原因、股价方向或投资建议。
+- `financialExplanation` 用户可见文本已纳入白名单合规扫描；`sourceName`、日期、状态枚举等元数据不会被宽泛扫描。
+- `_finalize()` 合规失败会进入安全 fallback，不产生 HTTP 500、递归或异常泄露。
+- 原 8 个章节和固定免责声明保持不变。
+
+Backend commit: `c0fb47f` - `feat: add financial change overview to research reports`.
+
+### 前端实现
+
+- 新增 `FinancialChangeOverview`。
+- 模块顺序为：重大事件线索 -> 业绩变化概览 -> 数据状态 -> 原 8 个章节。
+- 前端只展示服务端结果，不自行计算 `changePattern`，不推断经营原因。
+- 支持完整、部分缺失、待复核、不可用和旧响应缺失状态。
+- 财务数据不足时显示安全空状态，不写成“公司没有业绩变化”。
+- 桌面端和约 390px 移动端布局通过验证；原重大事件模块、报告章节和免责声明无回归。
+
+Frontend commit: `a890cbb` - `feat: show financial change overview in research reports`.
+
+### 验证结果
+
+- 后端 compileall 通过。
+- disabled：HTTP 200，`rule/success/disabled/model=null`。
+- LLM 失败：HTTP 200，`rule_fallback/fallback`。
+- HARD_BLOCK：HTTP 200，安全规则版 fallback。
+- `_finalize()` 合规失败：HTTP 200，无递归或异常泄露。
+- 合规扫描白名单、元数据误扫、旧响应兼容、8 个章节和免责声明测试通过。
+- 前端 `pnpm typecheck` 和 `pnpm build` 通过，仅保留既有 Charts/ECharts chunk 体积警告。
+- 无 `/api/api/research/reports`，无前端 Key 或 Provider 直连；Console 无项目错误。
+- 桌面端和约 390px 移动端无横向溢出。
+
+验收边界：当前真实财务数据触发的是业绩变化概览安全空状态；完整指标、部分字段缺失、stale、mock、fallback 和异常值等构造场景由后端规则测试与前端逻辑覆盖，未声称全部通过真实浏览器数据验证。
+
+### 当前剩余步骤
+
+1. 提交本次项目记忆文档。
+2. 将 `c0fb47f`、`a890cbb` 和文档 commit 一并 push 到 `main`。
+3. 等待 Render 和 Netlify 部署，保持 Render LLM 关闭。
+4. 执行线上无 Key 验收，确认业绩变化概览安全空状态、重大事件模块、8 个章节和免责声明在线正常。
+5. 验收通过后正式完成 V2.1.2.

@@ -122,3 +122,36 @@
 - `f904445` - `docs: add user-driven product revamp requirements`
 
 These commits have not been pushed or deployed.
+
+## Unreleased - 2026-07-15
+
+### Added
+
+- Added a backward-compatible optional `financialExplanation` response field.
+- Added latest-period financial fact normalization and revenue/profit change-pattern summaries.
+- Added `FinancialChangeOverview` to research reports.
+- Added financial data limitation and follow-up information.
+- Added `financialExplanation` compliance scanning for user-visible text.
+
+### Fixed
+
+- Prevented `financialExplanation` compliance failures from producing HTTP 500 responses.
+- Restricted compliance scanning to explicit user-visible financial fields to reduce metadata false positives.
+- Added safe fallback behavior for final response compliance failures.
+
+### Validation
+
+- Backend compile and financial rule tests passed.
+- Disabled, LLM failure, HARD_BLOCK and finalization fallback tests passed.
+- Frontend typecheck and production build passed.
+- Desktop and approximately 390px mobile smoke tests passed.
+- Existing Charts/ECharts chunk-size warning remains.
+- No sensitive credentials or frontend provider connection were found.
+- Render LLM remains disabled.
+- Changes have not yet been pushed or deployed.
+- Real browser data triggered only the safe empty state; constructed financial states were covered by tests and frontend logic.
+
+### Commits
+
+- `c0fb47f` - `feat: add financial change overview to research reports`
+- `a890cbb` - `feat: show financial change overview in research reports`
