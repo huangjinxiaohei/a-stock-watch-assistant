@@ -302,3 +302,23 @@ The feature commits were pushed to `main`. Render OpenAPI and the Netlify bundle
 ### Commit
 
 - `bff2490` - `perf: compact AI report enhancement payload`
+
+## Unreleased - 2026-07-16 - LLM Empty Content Handling
+
+### Fixed
+
+- Explicitly disabled thinking for the bounded research-report LLM request while retaining JSON-object output and the existing output-token limit.
+- Converted empty, truncated, filtered, resource-interrupted, and invalid JSON model outcomes into distinct non-sensitive fallback codes.
+- Added response metadata diagnostics for finish reason, content/reasoning lengths, response model, and token usage without logging reasoning text, prompts, response bodies, credentials, or headers.
+
+### Validation
+
+- Backend compile and 21 unit tests passed.
+- Covered thinking request parameters, normal JSON, null/blank content, reasoning-only output, finish-reason mappings, invalid JSON, complete rule fallback preservation, and default rule-mode no-call behavior.
+- Existing data-quality gates, compliance rules, eight sections, extension modules, disclaimer, model configuration, and no-retry behavior remain unchanged.
+
+### Commit
+
+- `3891ad0` - `fix: handle empty LLM response content`
+
+The commit has not yet been pushed. One post-deployment AI request is permitted only when core quote and kline data are fresh.

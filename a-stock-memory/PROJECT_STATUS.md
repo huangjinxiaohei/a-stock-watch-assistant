@@ -427,3 +427,14 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 - The commit was pushed to `main`. Render health returned HTTP 200 after the deployment wait; Render LLM configuration was not changed by this implementation.
 - The single conditional online AI sample was not sent because SH600519 quote returned `mock/fallback` while kline was `akshare/live`; the core-data gate correctly prevented an ineligible model call. This is recorded as a free-data-source limitation, not an AI-path result.
 - Functional design is frozen. No further feature work is planned for this release.
+
+## LLM Empty Content Diagnostic and Fix - 2026-07-16
+
+- Online AI-mode evidence reached the LLM and returned a controlled `rule_fallback/fallback` after 26.901 seconds with `LLM returned empty content`; this was not a frontend timeout or a core-data gate result.
+- The previous client requested JSON output and used `max_tokens=700`, but did not explicitly disable thinking and inspected only `message.content`. The empty-content error occurred before JSON parsing.
+- The research-report LLM request now includes `thinking: {"type": "disabled"}` while retaining `response_format=json_object`, `max_tokens=700`, no automatic retry, the existing model, and the existing compliance and quality gates.
+- The client strips content before validation, records only non-sensitive response metadata (`finish_reason`, content/reasoning presence and lengths, response model, and token-usage counters), and never logs reasoning text, prompts, response bodies, credentials, or headers.
+- Empty outcomes map to `LLM_EMPTY_CONTENT`, `LLM_OUTPUT_TRUNCATED`, `LLM_CONTENT_FILTERED`, `LLM_RESOURCE_INTERRUPTED`, or `LLM_INVALID_JSON`. Any result remains a complete rule fallback with eight sections, extension modules, and the fixed disclaimer.
+- Backend compile and 21 unit tests passed. Tests cover thinking request parameters, normal JSON, null/blank content, reasoning-only output, each mapped finish reason, invalid JSON, rule-mode no-call behavior, and preservation of the complete rule report on empty AI content.
+- Commit: `3891ad0` - `fix: handle empty LLM response content`.
+- This commit has not yet been pushed. After deployment, at most one AI request may be made only when quote and kline both pass the core-data gate; record only non-sensitive metadata and stop after the result.
