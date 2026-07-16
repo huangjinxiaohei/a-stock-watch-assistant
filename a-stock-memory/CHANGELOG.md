@@ -321,4 +321,4 @@ The feature commits were pushed to `main`. Render OpenAPI and the Netlify bundle
 
 - `3891ad0` - `fix: handle empty LLM response content`
 
-The commit has not yet been pushed. One post-deployment AI request is permitted only when core quote and kline data are fresh.
+The commits were pushed to `main`. The single permitted SH600519 AI-mode request returned HTTP 200 in 11.061 seconds but was blocked before the LLM by `CORE_QUOTE_MOCK at core.quote`, returning a complete `rule_fallback` report with `provider=not_requested` and `model=null`. No second request was sent. The empty-content fix remains covered by deterministic local tests; this online result did not reach the LLM.
