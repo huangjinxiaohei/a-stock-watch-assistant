@@ -104,6 +104,13 @@ def assert_llm_text_compliant(sections: list[dict] | list[object], warnings: lis
     _scan_or_raise([str(warning) for warning in warnings], "warnings")
 
 
+def assert_llm_enhancement_compliant(draft: object) -> None:
+    _scan_or_raise([str(getattr(draft, "executiveSummary", ""))], "aiEnhancement.executiveSummary")
+    _scan_or_raise([str(item) for item in getattr(draft, "keyObservations", [])], "aiEnhancement.keyObservations")
+    _scan_or_raise([str(item) for item in getattr(draft, "riskInterpretation", [])], "aiEnhancement.riskInterpretation")
+    _scan_or_raise([str(item) for item in getattr(draft, "dataLimitations", [])], "aiEnhancement.dataLimitations")
+
+
 def collect_compliance_findings(sections: list[dict] | list[object], warnings: list[str]) -> list[ComplianceFinding]:
     findings: list[ComplianceFinding] = []
     for section_index, section in enumerate(sections):

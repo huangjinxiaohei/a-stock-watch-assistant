@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 
-from app.config import _env_float
+from app.config import _env_float, _env_int
 from app.research.llm_client import LlmClient, LlmClientError
-from app.research.schemas import DISCLAIMER, SECTION_TITLES, ResearchReportRequest
+from app.research.schemas import DISCLAIMER, ResearchReportRequest
 from app.research.service import ResearchReportService
 
 
@@ -38,11 +38,12 @@ class _SuccessResponse:
         return None
 
     def json(self) -> dict[str, object]:
-        return {"choices": [{"message": {"content": "{\"ok\": true}"}}]}
+        return {"choices": [{"message": {"content": "{\"ok\": true}"}}], "usage": {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20}}
 
 
 class _SuccessClient:
     timeouts: list[httpx.Timeout] = []
+    payloads: list[dict[str, object]] = []
 
     def __init__(self, *, timeout: httpx.Timeout) -> None:
         type(self).timeouts.append(timeout)
@@ -54,6 +55,9 @@ class _SuccessClient:
         return None
 
     def post(self, *args: object, **kwargs: object) -> _SuccessResponse:
+        payload = kwargs.get("json")
+        if isinstance(payload, dict):
+            type(self).payloads.append(payload)
         return _SuccessResponse()
 
 
@@ -69,12 +73,10 @@ class _SuccessfulLlm:
 
     def generate_report(self, facts: dict[str, object], **kwargs: object) -> dict[str, object]:
         return {
-            "sections": [
-                {"title": title, "points": [DISCLAIMER] if title == "\u514d\u8d23\u58f0\u660e" else ["Public data summary."]}
-                for title in SECTION_TITLES
-            ],
-            "disclaimer": DISCLAIMER,
-            "warnings": [],
+            "executiveSummary": "Public facts were organized without a forecast.",
+            "keyObservations": ["Use only the supplied public facts."],
+            "riskInterpretation": [],
+            "dataLimitations": [],
         }
 
 
@@ -88,6 +90,7 @@ def _llm_settings() -> SimpleNamespace:
         llm_timeout_seconds=48.0,
         llm_connect_timeout_seconds=5.0,
         llm_max_retries=1,
+        llm_max_tokens=700,
         llm_temperature=0.2,
     )
 
@@ -157,6 +160,7 @@ class LlmTimeoutBudgetTests(unittest.TestCase):
     def setUp(self) -> None:
         _TimeoutClient.attempts = 0
         _TimeoutClient.timeouts = []
+        _SuccessClient.payloads = []
 
     def test_exhausted_total_budget_stops_retries_and_raises_safe_timeout(self) -> None:
         monotonic_values = iter([0.0, 0.0, 48.0])
@@ -179,11 +183,14 @@ class LlmTimeoutBudgetTests(unittest.TestCase):
         with patch("app.research.llm_client.settings", _llm_settings()), patch(
             "app.research.llm_client.httpx.Client", _SuccessClient
         ), patch("app.research.llm_client.time.monotonic", side_effect=[0.0, 0.0]):
-            result = LlmClient().generate_report({"symbol": "SH600519"})
+            client = LlmClient()
+            result = client.generate_report({"symbol": "SH600519"})
 
         self.assertEqual(result, {"ok": True})
         self.assertEqual(_SuccessClient.timeouts[0].read, 48.0)
         self.assertEqual(_SuccessClient.timeouts[0].connect, 5.0)
+        self.assertEqual(_SuccessClient.payloads[0]["max_tokens"], 700)
+        self.assertEqual(client.last_usage, {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20})
 
     def test_timeout_falls_back_to_complete_rule_report(self) -> None:
         service = ResearchReportService()
@@ -204,6 +211,10 @@ class LlmTimeoutBudgetTests(unittest.TestCase):
         self.assertEqual(len(response.majorEvents), 1)
         self.assertIsNotNone(response.financialExplanation)
         self.assertIsNotNone(response.riskOverview)
+
+    def test_output_token_configuration_is_capped(self) -> None:
+        with patch.dict(os.environ, {"LLM_MAX_TOKENS": "5000"}, clear=False):
+            self.assertEqual(_env_int("LLM_MAX_TOKENS", 700, minimum=100, maximum=900), 900)
 
     def test_timeout_configuration_is_capped_at_48_seconds(self) -> None:
         with patch.dict(os.environ, {"LLM_TIMEOUT_SECONDS": "120"}, clear=False):

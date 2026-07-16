@@ -18,6 +18,7 @@ class LlmClient:
     def __init__(self) -> None:
         self.provider = settings.llm_provider or "openai_compatible"
         self.model = settings.llm_model or None
+        self.last_usage: dict[str, int] | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -45,6 +46,7 @@ class LlmClient:
                 {"role": "user", "content": build_user_prompt(fact_package)},
             ],
             "temperature": settings.llm_temperature,
+            "max_tokens": int(getattr(settings, "llm_max_tokens", 700)),
             "response_format": {"type": "json_object"},
         }
         headers = {
@@ -52,6 +54,7 @@ class LlmClient:
             "Content-Type": "application/json",
         }
 
+        self.last_usage = None
         budget_seconds = _effective_timeout_seconds(timeout_seconds)
         deadline = time.monotonic() + budget_seconds
         last_error: Exception | None = None
@@ -66,7 +69,9 @@ class LlmClient:
                 if response.status_code in {401, 403, 429} or response.status_code >= 500:
                     raise LlmClientError(f"LLM upstream status {response.status_code}")
                 response.raise_for_status()
-                content = _extract_message_content(response.json())
+                response_payload = response.json()
+                self.last_usage = _extract_usage(response_payload)
+                content = _extract_message_content(response_payload)
                 return _parse_json_object(content)
             except httpx.TimeoutException as error:
                 last_error = error
@@ -112,6 +117,18 @@ def _parse_json_object(content: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise LlmClientError("LLM JSON root is not object")
     return value
+
+
+def _extract_usage(payload: dict[str, Any]) -> dict[str, int] | None:
+    usage = payload.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    result: dict[str, int] = {}
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = usage.get(key)
+        if isinstance(value, int) and value >= 0:
+            result[key] = value
+    return result or None
 
 
 def _safe_reason(reason: str) -> str:

@@ -14,13 +14,14 @@ from app.cache import CacheEntry, PersistentCache
 from app.config import settings
 from app.providers.akshare_provider import AkShareProvider
 from app.providers.mock_provider import MockProvider
-from app.research.compliance import ComplianceError, assert_llm_text_compliant, assert_report_compliant, sanitize_rule_text
+from app.research.compliance import ComplianceError, assert_llm_enhancement_compliant, assert_report_compliant, sanitize_rule_text
 from app.research.financial_facts import build_financial_explanation
 from app.research.llm_client import LlmClient, LlmClientError
+from app.research.llm_facts import build_llm_fact_package
 from app.research.major_events import build_major_events
 from app.research.risk_facts import build_risk_overview
 from app.research.rule_report import build_rule_report
-from app.research.schemas import DISCLAIMER, SECTION_TITLES, LlmReportDraft, ReportStatus, ResearchReportRequest, ResearchReportResponse, ResearchReportSection
+from app.research.schemas import DISCLAIMER, SECTION_TITLES, LlmEnhancementDraft, ReportStatus, ResearchReportRequest, ResearchReportResponse, ResearchReportSection
 from app.symbols import normalize_symbol
 
 
@@ -137,30 +138,22 @@ class ResearchReportService:
 
         llm_started = time.perf_counter()
         try:
-            llm_payload = llm_client.generate_report(facts, timeout_seconds=llm_budget, allow_retries=False)
-            draft = LlmReportDraft.model_validate(llm_payload)
-            assert_llm_text_compliant(draft.sections, draft.warnings)
+            llm_facts = build_llm_fact_package(facts)
+            llm_payload = llm_client.generate_report(llm_facts, timeout_seconds=llm_budget, allow_retries=False)
+            draft = LlmEnhancementDraft.model_validate(llm_payload)
+            assert_llm_enhancement_compliant(draft)
             _log_stage("llm", facts.get("symbol"), llm_started, "success")
-            response = ResearchReportResponse(
-                symbol=facts["symbol"],
-                name=facts["name"],
-                generatedAt=generated_at,
-                reportStatus=ReportStatus(
+            response = build_rule_report(
+                facts,
+                ReportStatus(
                     source="llm",
                     status="success",
                     provider=settings.llm_provider or "openai_compatible",
                     model=settings.llm_model or None,
                 ),
-                dataSources=facts["dataSources"],
-                dataStatus=facts["dataStatus"],
-                missingFields=facts["missingFields"],
-                sections=draft.sections,
-                disclaimer=DISCLAIMER,
-                warnings=[sanitize_rule_text(item) for item in draft.warnings],
-                majorEvents=facts.get("majorEvents") or [],
-                financialExplanation=facts.get("financialExplanation"),
-                riskOverview=facts.get("riskOverview"),
+                generated_at,
             )
+            _merge_ai_enhancement(response, draft)
             return self._finalize(response, started_at)
         except (LlmClientError, ValueError, ComplianceError) as error:
             _log_stage("llm", facts.get("symbol"), llm_started, "error")
@@ -507,6 +500,19 @@ class ResearchReportService:
                 assert_report_compliant(response)
         _log_stage("total", response.symbol, started_at, "success")
         return response
+
+
+def _merge_ai_enhancement(response: ResearchReportResponse, draft: LlmEnhancementDraft) -> None:
+    sections = {section.title: section for section in response.sections}
+    summary = sections.get(SECTION_TITLES[6])
+    if summary is not None:
+        summary.points.insert(0, f"\u0041\u0049\u8865\u5145\uff1a{draft.executiveSummary}")
+        summary.points[1:1] = [f"\u0041\u0049\u89c2\u5bdf\uff1a{item}" for item in draft.keyObservations]
+
+    risk_section = sections.get(SECTION_TITLES[5])
+    if risk_section is not None:
+        risk_section.points.extend(f"\u0041\u0049\u590d\u6838\uff1a{item}" for item in draft.riskInterpretation)
+        risk_section.points.extend(f"\u6570\u636e\u9650\u5236\uff1a{item}" for item in draft.dataLimitations)
 
 
 def _safe_finalize_fallback(response: ResearchReportResponse, error: ComplianceError) -> ResearchReportResponse:

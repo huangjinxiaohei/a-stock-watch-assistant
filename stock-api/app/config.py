@@ -20,13 +20,15 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes"}
 
 
-def _env_int(name: str, default: int, minimum: int | None = None) -> int:
+def _env_int(name: str, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
     try:
         value = int(os.getenv(name, str(default)).strip())
     except (TypeError, ValueError):
         return default
     if minimum is not None and value < minimum:
         return default
+    if maximum is not None and value > maximum:
+        return maximum
     return value
 
 
@@ -57,6 +59,7 @@ class Settings:
     llm_timeout_seconds: float = _env_float("LLM_TIMEOUT_SECONDS", 48.0, minimum=1.0, maximum=48.0)
     llm_connect_timeout_seconds: float = _env_float("LLM_CONNECT_TIMEOUT_SECONDS", 5.0, minimum=0.1, maximum=10.0)
     llm_max_retries: int = _env_int("LLM_MAX_RETRIES", 1, minimum=0)
+    llm_max_tokens: int = _env_int("LLM_MAX_TOKENS", 700, minimum=100, maximum=900)
     ai_report_ai_timeout_seconds: float = _env_float("AI_REPORT_AI_TIMEOUT_SECONDS", 110.0, minimum=1.0, maximum=110.0)
     llm_temperature: float = _env_float("LLM_TEMPERATURE", 0.2, minimum=0.0)
     ai_report_max_news_items: int = _env_int("AI_REPORT_MAX_NEWS_ITEMS", 8, minimum=1)

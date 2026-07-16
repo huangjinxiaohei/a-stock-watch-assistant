@@ -172,6 +172,20 @@ class ResearchReportResponse(BaseModel):
     riskOverview: RiskOverview | None = None
 
 
+class LlmEnhancementDraft(BaseModel):
+    executiveSummary: str = Field(min_length=1, max_length=160)
+    keyObservations: list[str] = Field(default_factory=list, max_length=3)
+    riskInterpretation: list[str] = Field(default_factory=list, max_length=3)
+    dataLimitations: list[str] = Field(default_factory=list, max_length=3)
+
+    @field_validator("keyObservations", "riskInterpretation", "dataLimitations")
+    @classmethod
+    def validate_short_items(cls, value: list[str]) -> list[str]:
+        if not all(isinstance(item, str) and item.strip() and len(item) <= 90 for item in value):
+            raise ValueError("LLM enhancement items must be non-empty strings of at most 90 characters")
+        return value
+
+
 class LlmReportDraft(BaseModel):
     sections: list[ResearchReportSection]
     disclaimer: str
