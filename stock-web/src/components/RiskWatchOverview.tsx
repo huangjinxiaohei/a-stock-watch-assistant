@@ -9,53 +9,76 @@ const EMPTY_TEXT = "当前可用数据不足以形成可靠的风险与观察清
 
 export function RiskWatchOverview({ riskOverview }: RiskWatchOverviewProps) {
   const overview = riskOverview || null;
-  const hasContent = Boolean(overview && (overview.riskItems.length > 0 || overview.watchItems.length > 0 || overview.limitations.length > 0));
+  const riskItems = (overview?.riskItems || []).filter((item) => !hasUntrustedRiskData(item));
+  const watchItems = overview?.watchItems || [];
+  const limitations = overview?.limitations || [];
+  const hasRiskItems = riskItems.length > 0;
+  const hasWatchItems = watchItems.length > 0;
+  const hasContent = hasRiskItems || hasWatchItems;
   const status = overview?.status || "missing";
+  const title = hasRiskItems ? "风险与后续观察" : hasWatchItems ? "后续观察清单" : "风险与后续观察";
+
+  if (!hasContent) {
+    return (
+      <section className="risk-watch-overview risk-watch-compact status-warn" aria-label="风险与后续观察">
+        <div className="risk-compact-copy">
+          <h3>风险与后续观察</h3>
+          <p>{EMPTY_TEXT}</p>
+        </div>
+        {limitations.length > 0 ? <CompactLimitations items={limitations} /> : null}
+      </section>
+    );
+  }
 
   return (
-    <section className={`risk-watch-overview status-${status === "available" ? "good" : "warn"}`} aria-label="风险与后续观察">
+    <section className={`risk-watch-overview status-${status === "available" ? "good" : "warn"}`} aria-label={title}>
       <div className="risk-watch-header">
         <div>
-          <h3>风险与后续观察</h3>
-          <p>仅整理服务端已返回的事实、数据限制和待复核事项。</p>
+          <h3>{title}</h3>
+          <p>{hasRiskItems ? "仅整理服务端已返回的事实、数据限制和待复核事项。" : "当前数据不足以形成明确风险结论，以下事项建议结合后续公开信息持续复核。"}</p>
         </div>
-        <span>{riskStatusLabel(status)}</span>
+        {hasRiskItems ? <span>{riskStatusLabel(status)}</span> : null}
       </div>
 
-      {!hasContent ? (
-        <div className="risk-watch-empty">{EMPTY_TEXT}</div>
-      ) : (
+      {hasRiskItems && overview?.summary ? <div className="risk-watch-summary"><Info size={15} /> {overview.summary}</div> : null}
+
+      {hasRiskItems ? (
         <>
-          {overview?.summary ? <div className="risk-watch-summary"><Info size={15} /> {overview.summary}</div> : null}
-
-          {overview && overview.riskItems.length > 0 ? (
-            <>
-              <strong className="risk-watch-section-label">风险线索</strong>
-              <div className="risk-watch-grid">
-                {overview.riskItems.map((item) => <RiskCard item={item} key={item.id} />)}
-              </div>
-            </>
-          ) : null}
-
-          {overview && overview.watchItems.length > 0 ? (
-            <>
-              <strong className="risk-watch-section-label">后续观察</strong>
-              <div className="risk-watch-grid">
-                {overview.watchItems.map((item) => <WatchCard item={item} key={item.id} />)}
-              </div>
-            </>
-          ) : null}
-
-          {overview && overview.limitations.length > 0 ? (
-            <div className="risk-watch-limitations">
-              <strong>数据限制</strong>
-              <ul>{overview.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
-            </div>
-          ) : null}
+          <strong className="risk-watch-section-label">风险线索</strong>
+          <div className="risk-watch-grid">
+            {riskItems.map((item) => <RiskCard item={item} key={item.id} />)}
+          </div>
         </>
-      )}
+      ) : null}
+
+      {hasWatchItems ? (
+        <>
+          {hasRiskItems ? <strong className="risk-watch-section-label">后续观察</strong> : null}
+          <div className="risk-watch-grid">
+            {watchItems.map((item) => <WatchCard item={item} key={item.id} />)}
+          </div>
+        </>
+      ) : null}
+
+      {limitations.length > 0 ? <CompactLimitations items={limitations} /> : null}
     </section>
   );
+}
+
+function CompactLimitations({ items }: { items: string[] }) {
+  return (
+    <details className="risk-watch-limitations">
+      <summary>查看数据限制</summary>
+      <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>
+    </details>
+  );
+}
+
+function hasUntrustedRiskData(item: RiskItem): boolean {
+  const dataStatus = item.dataStatus || {};
+  const values = [dataStatus.state, dataStatus.mode, dataStatus.provider]
+    .map((value) => String(value || "").toLowerCase());
+  return values.some((value) => ["missing", "mock", "fallback", "stale", "stale_refreshing"].includes(value));
 }
 
 function RiskCard({ item }: { item: RiskItem }) {
@@ -99,7 +122,7 @@ function WatchCard({ item }: { item: RiskWatchItem }) {
 }
 
 function severityLabel(value: string): string {
-  return { high_attention: "高关注", medium_attention: "中关注", general_attention: "一般关注" }[value] || "关注级别待复核";
+  return { high_attention: "重点关注", medium_attention: "持续关注", general_attention: "一般关注" }[value] || "关注级别待复核";
 }
 
 function riskItemStatusLabel(value: string): string {

@@ -2464,3 +2464,79 @@ html[data-theme="dark"] .risk-watch-limitations li {
     width: fit-content;
   }
 }
+
+
+/* Compact states preserve data limits without taking over the report viewport. */
+.financial-change-overview.financial-change-compact,
+.risk-watch-overview.risk-watch-compact {
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.financial-compact-copy,
+.risk-compact-copy {
+  min-width: 0;
+}
+
+.financial-compact-copy h3,
+.risk-compact-copy h3 {
+  margin: 0;
+  color: #344054;
+  font-size: 14px;
+}
+
+.financial-compact-copy p,
+.risk-compact-copy p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.financial-compact-details,
+.risk-watch-limitations {
+  min-width: 0;
+}
+
+.financial-compact-details summary,
+.risk-watch-limitations summary {
+  cursor: pointer;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.financial-compact-details ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.financial-compact-details li {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+html[data-theme="dark"] .financial-compact-copy h3,
+html[data-theme="dark"] .risk-compact-copy h3 {
+  color: #e4edf5;
+}
+
+html[data-theme="dark"] .financial-compact-copy p,
+html[data-theme="dark"] .risk-compact-copy p,
+html[data-theme="dark"] .financial-compact-details li,
+html[data-theme="dark"] .financial-compact-details summary,
+html[data-theme="dark"] .risk-watch-limitations summary {
+  color: #aebdcb;
+}
+
+@media (max-width: 640px) {
+  .financial-change-overview.financial-change-compact,
+  .risk-watch-overview.risk-watch-compact {
+    padding: 10px;
+  }
+}

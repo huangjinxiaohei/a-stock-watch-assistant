@@ -194,9 +194,10 @@ function getReportSourceView(report: ResearchReport, coreDataView: CoreDataView,
   }
 
   if (status.source === "llm" && status.status === "success") {
+    const aiBoundary = "AI仅对可用事实进行摘要和表达增强；缺失数据不会由模型补全。";
     return {
       label: "AI增强报告",
-      detail: optionalDataView.state === "complete" ? `${coreDataView.label}：由后端报告接口生成，并已保留数据状态和免责声明。` : `${coreDataView.label}${optionalDetail}`,
+      detail: optionalDataView.state === "complete" ? `${coreDataView.label}：${aiBoundary}` : `${coreDataView.label}${optionalDetail}。${aiBoundary}`,
       tone: coreDataView.state === "review" || optionalDataView.state !== "complete" ? "warn" : "good"
     };
   }
