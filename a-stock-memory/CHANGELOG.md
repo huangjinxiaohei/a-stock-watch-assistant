@@ -275,3 +275,28 @@ These commits have not been pushed or deployed.
 - `68c2456` - `feat: add manual AI report enhancement flow`
 
 The feature commits were pushed to `main`. Render OpenAPI and the Netlify bundle were verified after deployment. One online rule-mode SH600519 request returned in 2.004 seconds with `rule/success/not_requested/model=null`, eight sections, the extension modules, and the disclaimer. The AI-mode request was intentionally skipped because preflight core quote and kline were both `mock/fallback`; it would not have reached the LLM.
+
+## Unreleased - 2026-07-16 - LLM Incremental Enhancement Optimization
+
+### Changed
+
+- Replaced full eight-section LLM rewrites with a bounded incremental supplement merged into the complete rule report.
+- Reduced the inspected SH600519 fact package from 11,041 to 2,661 characters and the user prompt from 12,897 to 3,631 characters.
+- Limited model input to normalized display facts: no raw kline series, at most three news clues, at most three major-event clues, and at most three risk or watch items per list.
+- Added `max_tokens=700`, capped by configuration at 900, and constrained model output to one executive summary plus up to three items in each remaining output group.
+
+### Added
+
+- Added compact LLM fact construction and strict validation for the incremental output schema.
+- Added aggregate response token-usage parsing without exposing it through the public API or logging request/response bodies.
+
+### Validation
+
+- Backend compile and 14 unit tests passed, including default rule mode, compact facts, bounded output, AI success merge, compliance fallback, timeout behavior, and token usage parsing.
+- Frontend typecheck and production build passed; the existing Charts/ECharts chunk-size warning remains.
+- No provider, quality gate, deployment configuration, credential, or frontend request-flow change was made.
+- Online AI validation remains conditional on fresh quote and kline data and is limited to one request after deployment.
+
+### Commit
+
+- `bff2490` - `perf: compact AI report enhancement payload`

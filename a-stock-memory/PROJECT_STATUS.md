@@ -403,3 +403,26 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 - Feature commits pushed to `main`: `066026f` (`feat: add manual AI report generation mode`) and `68c2456` (`feat: add manual AI report enhancement flow`).
 - Render LLM configuration was not changed by this implementation. Render and Netlify deployment behavior was verified: OpenAPI exposes `generationMode`, the Netlify bundle contains the new client marker, and an online rule-mode SH600519 report returned in 2.004 seconds with `rule/success/not_requested/model=null`, eight sections, all three extension modules, and the fixed disclaimer.
 - The single AI-mode online request was intentionally not sent: preflight quote and kline were both `mock/fallback`, so the core-data gate would have returned a controlled `CORE_*` fallback without exercising the model. AI success/timeout behavior remains covered by deterministic local tests until a separate fresh-core-data test is authorized.
+
+## LLM Incremental AI Enhancement Optimization - 2026-07-16
+
+### Scope and behavior
+
+- Manual AI mode now sends a compact, normalized fact package and asks the model only for a bounded supplement; rule mode remains the default and never initializes or calls the LLM client.
+- The model returns `executiveSummary` plus at most three `keyObservations`, three `riskInterpretation` items, and three `dataLimitations` items. The backend merges compliant additions into the complete rule report rather than asking the model to rewrite eight sections, major events, financial overview, risk overview, data status, or the disclaimer.
+- Existing core-data gates, compliance rules, rule fallback behavior, three extension modules, eight sections, and fixed disclaimer remain unchanged. AI failures, timeouts, and compliance blocks still return a complete controlled rule fallback.
+
+### Measured payload reduction
+
+- Before optimization: system prompt 1,043 characters; user prompt 12,897 characters; fact package 11,041 characters; up to eight news items; full eight-section model rewrite; no explicit output-token cap.
+- After optimization: system prompt 614 characters; compact fact package 2,661 characters; user prompt 3,631 characters; no raw kline series; three news clues; two available major-event clues; zero risk items and two watch items in the inspected SH600519 package; `max_tokens=700` with a configuration cap of 900; four bounded model output fields.
+- The client now reads aggregate token usage when the OpenAI-compatible response provides it. Usage is not added to the public API response and no request or response body is logged.
+
+### Validation and deployment state
+
+- Backend `compileall` and 14 unit tests passed, covering rule-mode no-call behavior, compact fact bounds, AI success merge, HARD_BLOCK fallback, deadline behavior, token cap, and token-usage parsing.
+- Frontend typecheck and production build passed. The existing Charts/ECharts chunk-size warning remains the only build warning; no frontend code change was required for this backend-only optimization.
+- All changed files are UTF-8 without BOM and LF-only. `git diff --check` passed before commit; sensitive-pattern scanning found no real credential marker.
+- Backend commit: `bff2490` - `perf: compact AI report enhancement payload`.
+- The commit has not yet been pushed or deployed. Render LLM configuration was not changed by this implementation.
+- Functional design is frozen after deployment and one conditional AI-mode online sample: the request may run only when quote and kline are both fresh. If that condition is not met, record the free-data-source limitation and do not consume an AI call.
