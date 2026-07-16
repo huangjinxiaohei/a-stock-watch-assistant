@@ -322,3 +322,20 @@ The feature commits were pushed to `main`. Render OpenAPI and the Netlify bundle
 - `3891ad0` - `fix: handle empty LLM response content`
 
 The commits were pushed to `main`. The single permitted SH600519 AI-mode request returned HTTP 200 in 11.061 seconds but was blocked before the LLM by `CORE_QUOTE_MOCK at core.quote`, returning a complete `rule_fallback` report with `provider=not_requested` and `model=null`. No second request was sent. The empty-content fix remains covered by deterministic local tests; this online result did not reach the LLM.
+
+## Unreleased - 2026-07-16 - Report Presentation Polish
+
+### Changed
+
+- Replaced the large missing-financial-data card with a compact `Financial data pending` notice and collapsed data limitations.
+- Rendered only available financial metrics for partial financial responses.
+- Made the risk presentation content-aware: watch-only responses use `Follow-up checklist`, risk-only responses omit an empty watch section, and empty responses use a compact state.
+- Prevented mock, fallback, stale, stale_refreshing, and missing risk data from being presented as confirmed risk clues.
+- Clarified that AI-enhanced reports only summarize available facts and do not fill missing data.
+
+### Validation
+
+- Frontend typecheck and production build passed.
+- `git diff --check` passed, and no API, backend, provider, environment, or deployment configuration was changed.
+- The existing Charts/ECharts chunk-size warning remains.
+- Local browser visual validation was blocked by localhost-to-production API cross-origin policy; deployed desktop and 390px visual checks remain pending.

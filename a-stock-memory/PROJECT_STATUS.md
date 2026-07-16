@@ -438,3 +438,17 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 - Backend compile and 21 unit tests passed. Tests cover thinking request parameters, normal JSON, null/blank content, reasoning-only output, each mapped finish reason, invalid JSON, rule-mode no-call behavior, and preservation of the complete rule report on empty AI content.
 - Commit: `3891ad0` - `fix: handle empty LLM response content`.
 - The code and documentation commits were pushed to `main`. The single permitted SH600519 AI-mode request returned HTTP 200 in 11.061 seconds, but its internal fact aggregation produced `CORE_QUOTE_MOCK at core.quote`; it therefore returned `rule_fallback/fallback/not_requested/model=null` before the LLM client was called. Eight sections, major events, financial overview, risk overview, and disclaimer remained complete. No second request was sent.
+
+## V2.1.3 Report Presentation Polish - Pending Deployment
+
+- The frontend now prioritizes content density over large empty-state panels without changing any backend field, API contract, data-quality gate, event rule, financial rule, risk rule, or LLM prompt.
+- `FinancialChangeOverview` renders a full overview only when at least one valid structured financial metric is available. Missing or unavailable financial data now uses a compact `Financial data pending` notice with optional collapsed limitations; it does not render empty metric placeholders or imply that performance did not change.
+- Partial financial data renders only returned metrics and labels the state as partial financial data available.
+- `RiskWatchOverview` now adapts to report contents: risk items plus watch items use `Risk and follow-up observations`; watch items alone use `Follow-up checklist`; risk-only reports omit an empty watch region; and reports with neither use a compact empty state.
+- Items marked mock, fallback, stale, stale_refreshing, or missing are not rendered as confirmed risk clues. They remain data limitations or review context.
+- Attention labels are presentation-only: high_attention -> key attention, medium_attention -> ongoing attention, general_attention -> general attention. They do not imply a trading action.
+- The AI-enhanced report banner now states that AI only summarizes and expresses available facts and does not fill missing data.
+- Changed frontend files: `FinancialChangeOverview.tsx`, `RiskWatchOverview.tsx`, `ResearchReportPanel.tsx`, and `styles.css`.
+- `pnpm typecheck`, `pnpm build`, and `git diff --check` passed locally. The existing Charts/ECharts chunk-size warning remains the only build warning.
+- The local Vite browser could not load production API data because direct localhost-to-production API requests are blocked by cross-origin policy. Desktop and 390px visual acceptance must be completed after the Netlify deployment, using the same-origin deployed frontend.
+- Render LLM configuration is unchanged by this presentation-only work.
