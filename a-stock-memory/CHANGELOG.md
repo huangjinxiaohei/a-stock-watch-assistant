@@ -295,7 +295,9 @@ The feature commits were pushed to `main`. Render OpenAPI and the Netlify bundle
 - Backend compile and 14 unit tests passed, including default rule mode, compact facts, bounded output, AI success merge, compliance fallback, timeout behavior, and token usage parsing.
 - Frontend typecheck and production build passed; the existing Charts/ECharts chunk-size warning remains.
 - No provider, quality gate, deployment configuration, credential, or frontend request-flow change was made.
-- Online AI validation remains conditional on fresh quote and kline data and is limited to one request after deployment.
+- The commits were pushed to `main`. Render health returned HTTP 200 after the deployment wait.
+- The conditional online AI request was not sent: SH600519 quote was `mock/fallback` while kline was `akshare/live`, so the core-data gate correctly prevented a model call.
+- Functional development is frozen; the Netlify frontend was unchanged by this backend-only optimization.
 
 ### Commit
 

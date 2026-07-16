@@ -424,5 +424,6 @@ Frontend commit: `a890cbb` - `feat: show financial change overview in research r
 - Frontend typecheck and production build passed. The existing Charts/ECharts chunk-size warning remains the only build warning; no frontend code change was required for this backend-only optimization.
 - All changed files are UTF-8 without BOM and LF-only. `git diff --check` passed before commit; sensitive-pattern scanning found no real credential marker.
 - Backend commit: `bff2490` - `perf: compact AI report enhancement payload`.
-- The commit has not yet been pushed or deployed. Render LLM configuration was not changed by this implementation.
-- Functional design is frozen after deployment and one conditional AI-mode online sample: the request may run only when quote and kline are both fresh. If that condition is not met, record the free-data-source limitation and do not consume an AI call.
+- The commit was pushed to `main`. Render health returned HTTP 200 after the deployment wait; Render LLM configuration was not changed by this implementation.
+- The single conditional online AI sample was not sent because SH600519 quote returned `mock/fallback` while kline was `akshare/live`; the core-data gate correctly prevented an ineligible model call. This is recorded as a free-data-source limitation, not an AI-path result.
+- Functional design is frozen. No further feature work is planned for this release.
