@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any
 
@@ -8,6 +9,9 @@ import httpx
 
 from app.config import settings
 from app.research.prompts import SYSTEM_PROMPT, build_user_prompt
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class LlmClientError(RuntimeError):
@@ -19,6 +23,7 @@ class LlmClient:
         self.provider = settings.llm_provider or "openai_compatible"
         self.model = settings.llm_model or None
         self.last_usage: dict[str, int] | None = None
+        self.last_diagnostics: dict[str, object] | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -48,6 +53,7 @@ class LlmClient:
             "temperature": settings.llm_temperature,
             "max_tokens": int(getattr(settings, "llm_max_tokens", 700)),
             "response_format": {"type": "json_object"},
+            "thinking": {"type": "disabled"},
         }
         headers = {
             "Authorization": f"Bearer {settings.llm_api_key}",
@@ -55,6 +61,7 @@ class LlmClient:
         }
 
         self.last_usage = None
+        self.last_diagnostics = None
         budget_seconds = _effective_timeout_seconds(timeout_seconds)
         deadline = time.monotonic() + budget_seconds
         last_error: Exception | None = None
@@ -71,7 +78,7 @@ class LlmClient:
                 response.raise_for_status()
                 response_payload = response.json()
                 self.last_usage = _extract_usage(response_payload)
-                content = _extract_message_content(response_payload)
+                content = _extract_message_content(response_payload, self)
                 return _parse_json_object(content)
             except httpx.TimeoutException as error:
                 last_error = error
@@ -98,14 +105,36 @@ def _chat_completions_url(base_url: str) -> str:
     return f"{clean}/chat/completions"
 
 
-def _extract_message_content(payload: dict[str, Any]) -> str:
+def _extract_message_content(payload: dict[str, Any], client: LlmClient) -> str:
     choices = payload.get("choices") or []
     if not choices:
-        raise LlmClientError("LLM returned no choices")
-    content = (choices[0].get("message") or {}).get("content")
-    if not isinstance(content, str) or not content.strip():
-        raise LlmClientError("LLM returned empty content")
-    return content
+        client.last_diagnostics = _response_diagnostics(payload, None, None, None)
+        raise LlmClientError("LLM_EMPTY_CONTENT")
+
+    choice = choices[0] if isinstance(choices[0], dict) else {}
+    message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+    content = message.get("content")
+    reasoning = message.get("reasoning_content")
+    finish_reason = choice.get("finish_reason")
+    content_text = content if isinstance(content, str) else ""
+    reasoning_text = reasoning if isinstance(reasoning, str) else ""
+    client.last_diagnostics = _response_diagnostics(payload, finish_reason, content_text, reasoning_text)
+    if content_text.strip():
+        return content_text.strip()
+
+    reason = _empty_content_reason(finish_reason)
+    LOGGER.warning(
+        "llm_empty_content finish_reason=%s content_length=%s reasoning_content_present=%s reasoning_content_length=%s response_model=%s prompt_tokens=%s completion_tokens=%s total_tokens=%s",
+        client.last_diagnostics["finish_reason"],
+        client.last_diagnostics["content_length"],
+        client.last_diagnostics["reasoning_content_present"],
+        client.last_diagnostics["reasoning_content_length"],
+        client.last_diagnostics["response_model"],
+        (client.last_usage or {}).get("prompt_tokens"),
+        (client.last_usage or {}).get("completion_tokens"),
+        (client.last_usage or {}).get("total_tokens"),
+    )
+    raise LlmClientError(reason)
 
 
 def _parse_json_object(content: str) -> dict[str, Any]:
@@ -113,10 +142,34 @@ def _parse_json_object(content: str) -> dict[str, Any]:
     if text.startswith("```"):
         lines = [line for line in text.splitlines() if not line.strip().startswith("```")]
         text = "\n".join(lines).strip()
-    value = json.loads(text)
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise LlmClientError("LLM_INVALID_JSON") from error
     if not isinstance(value, dict):
-        raise LlmClientError("LLM JSON root is not object")
+        raise LlmClientError("LLM_INVALID_JSON")
     return value
+
+
+def _response_diagnostics(payload: dict[str, Any], finish_reason: object, content: object, reasoning: object) -> dict[str, object]:
+    content_text = content if isinstance(content, str) else ""
+    reasoning_text = reasoning if isinstance(reasoning, str) else ""
+    return {
+        "finish_reason": str(finish_reason) if finish_reason is not None else None,
+        "content_length": len(content_text.strip()),
+        "reasoning_content_present": bool(reasoning_text),
+        "reasoning_content_length": len(reasoning_text),
+        "response_model": str(payload.get("model")) if payload.get("model") is not None else None,
+    }
+
+
+def _empty_content_reason(finish_reason: object) -> str:
+    mapping = {
+        "length": "LLM_OUTPUT_TRUNCATED",
+        "content_filter": "LLM_CONTENT_FILTERED",
+        "insufficient_system_resource": "LLM_RESOURCE_INTERRUPTED",
+    }
+    return mapping.get(str(finish_reason or ""), "LLM_EMPTY_CONTENT")
 
 
 def _extract_usage(payload: dict[str, Any]) -> dict[str, int] | None:

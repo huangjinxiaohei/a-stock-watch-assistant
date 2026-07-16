@@ -5,6 +5,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from app.research.llm_client import LlmClientError
 from app.research.llm_facts import build_llm_fact_package
 from app.research.schemas import ResearchReportRequest
 from app.research.service import ResearchReportService
@@ -120,6 +121,22 @@ class GenerationModeTests(unittest.TestCase):
         self.assertNotIn("financialExplanation", compact_facts)
         self.assertLessEqual(kwargs["timeout_seconds"], 110.0)
         self.assertFalse(kwargs["allow_retries"])
+
+    def test_empty_ai_content_keeps_complete_rule_report(self) -> None:
+        service = ResearchReportService()
+        llm_client = MagicMock(is_configured=True)
+        llm_client.generate_report.side_effect = LlmClientError("LLM_EMPTY_CONTENT")
+        service.llm_client = llm_client
+        service._build_fact_package = MagicMock(return_value=_facts())
+
+        with patch("app.research.service.settings", _settings(enabled=True)):
+            response = service.generate(ResearchReportRequest(symbol="SH600519", generationMode="ai"))
+
+        self.assertEqual(response.reportStatus.source, "rule_fallback")
+        self.assertEqual(response.reportStatus.status, "fallback")
+        self.assertEqual(response.reportStatus.fallbackReason, "LLM_EMPTY_CONTENT")
+        self.assertEqual(len(response.sections), 8)
+        self.assertTrue(response.disclaimer)
 
     def test_unsafe_ai_increment_returns_complete_rule_fallback(self) -> None:
         service = ResearchReportService()
